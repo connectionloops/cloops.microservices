@@ -1,0 +1,13 @@
+<Project>
+  <PropertyGroup>
+    <!-- Create full version string -->
+    <Version>$(packageVersion)</Version>
+    
+    <!-- Assembly version -->
+    <AssemblyVersion>$(packageVersion)</AssemblyVersion>
+    <FileVersion>$(packageVersion)</FileVersion>
+    
+    <!-- Package version -->
+    <PackageVersion>$(Version)</PackageVersion>
+  </PropertyGroup>
+</Project> 

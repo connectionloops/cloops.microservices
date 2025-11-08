@@ -1,0 +1,91 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: "windows-latest"
+
+variables:
+  project: "sdk/cloops.nats.sdk.csproj"
+  buildConfiguration: "Release"
+  # Versioning: Use date as version prefix (YYYY.MM.DD) and a per-day counter as pre-release tag.
+  major: 1
+  minor: 0
+  version: $(major).$(minor)
+  buildCounter: $[ counter(variables['version'], 0) ]
+  packageVersion: $(major).$(minor).$(buildCounter)
+
+stages:
+  - stage: Build
+    displayName: "Build and Test"
+    jobs:
+      - job: Build
+        displayName: "Build"
+        steps:
+          - task: UseDotNet@2
+            displayName: "Use .NET 9.0 SDK"
+            inputs:
+              version: "9.0.x"
+              includePreviewVersions: false
+
+          - task: DotNetCoreCLI@2
+            displayName: "Restore dependencies"
+            inputs:
+              command: "restore"
+              projects: "$(project)"
+              feedsToUse: "select"
+
+          - task: DotNetCoreCLI@2
+            displayName: "Build project"
+            inputs:
+              command: "build"
+              projects: "$(project)"
+              arguments: "--configuration $(buildConfiguration) --no-restore /p:PackageVersion=$(packageVersion)"
+
+          - task: DotNetCoreCLI@2
+            displayName: "Run tests"
+            inputs:
+              command: "test"
+              projects: "**/*Tests/*.csproj"
+              arguments: "--configuration $(buildConfiguration) --no-build"
+              publishTestResults: true
+            continueOnError: true
+
+  - stage: Publish
+    displayName: "Publish to NuGet"
+    dependsOn: Build
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - job: PublishToNuGet
+        displayName: "Publish to NuGet"
+        steps:
+          - task: UseDotNet@2
+            displayName: "Use .NET 9.0 SDK"
+            inputs:
+              version: "9.0.x"
+              includePreviewVersions: false
+
+          - task: DotNetCoreCLI@2
+            displayName: "Pack NuGet package"
+            inputs:
+              command: "pack"
+              packagesToPack: "$(project)"
+              versioningScheme: "off"
+              arguments: "--configuration $(buildConfiguration) --no-build --output $(Build.ArtifactStagingDirectory) /p:PackageVersion=$(packageVersion)"
+
+          - task: PublishBuildArtifacts@1
+            displayName: "Publish build artifacts"
+            inputs:
+              PathtoPublish: "$(Build.ArtifactStagingDirectory)"
+              ArtifactName: "drop"
+              publishLocation: "Container"
+
+          - task: NuGetCommand@2
+            displayName: "Push to NuGet"
+            inputs:
+              command: "push"
+              packagesToPush: "$(Build.ArtifactStagingDirectory)/**/*.nupkg"
+              nuGetFeedType: "external"
+              publishFeedCredentials: "NuGet.org"
+              allowPackageConflicts: false
