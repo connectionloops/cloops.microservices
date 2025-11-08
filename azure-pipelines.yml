@@ -7,7 +7,7 @@ pool:
   vmImage: "windows-latest"
 
 variables:
-  project: "sdk/cloops.nats.sdk.csproj"
+  project: "cloops.microservices.sdk.csproj"
   buildConfiguration: "Release"
   # Versioning: Use date as version prefix (YYYY.MM.DD) and a per-day counter as pre-release tag.
   major: 1
