@@ -23,7 +23,7 @@ Once SDK is pulled in, it is just a one liner setup to have full fledged microse
 ### New Projects (Recommended)
 
 ```bash
-dotnet new cloops.microservices <name_of_service>
+dotnet new cloops.microservice -n <name_of_service>
 ```
 
 ### Existing Projects
