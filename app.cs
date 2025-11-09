@@ -1,5 +1,6 @@
 using System.Linq;
 using System.Net.Http;
+using System.Runtime.CompilerServices;
 using System.Reflection;
 using CLOOPS.NATS;
 using Microsoft.Extensions.DependencyInjection;
@@ -119,13 +120,14 @@ public class App
 
         var controllerTypes = targetAssembly
             .GetTypes()
-            .Where(t => t.IsClass && !t.IsAbstract)
+            .Where(t => t.IsClass && !t.IsAbstract && !t.IsNested)
             .Where(t =>
             {
                 var ns = t.Namespace;
                 return !string.IsNullOrEmpty(ns) &&
                        ns.EndsWith("Controllers", StringComparison.OrdinalIgnoreCase);
             })
+            .Where(t => !t.IsDefined(typeof(CompilerGeneratedAttribute), inherit: false))
             .ToArray();
 
         foreach (var controllerType in controllerTypes)
@@ -141,7 +143,7 @@ public class App
 
         var serviceTypes = targetAssembly
             .GetTypes()
-            .Where(t => t.IsClass && !t.IsAbstract)
+            .Where(t => t.IsClass && !t.IsAbstract && !t.IsNested)
             .Where(t =>
             {
                 var ns = t.Namespace;
@@ -155,6 +157,7 @@ public class App
                 var endsWithHttp = ns.EndsWith("Services.Http", StringComparison.OrdinalIgnoreCase);
                 return endsWithServices && !endsWithBackground && !endsWithHttp;
             })
+            .Where(t => !t.IsDefined(typeof(CompilerGeneratedAttribute), inherit: false))
             .ToArray();
 
         foreach (var serviceType in serviceTypes)
@@ -175,7 +178,7 @@ public class App
 
         var backgroundServiceTypes = targetAssembly
             .GetTypes()
-            .Where(t => t.IsClass && !t.IsAbstract)
+            .Where(t => t.IsClass && !t.IsAbstract && !t.IsNested)
             .Where(t =>
             {
                 var ns = t.Namespace;
@@ -183,6 +186,7 @@ public class App
                        ns.EndsWith("Services.Background", StringComparison.OrdinalIgnoreCase);
             })
             .Where(t => typeof(IHostedService).IsAssignableFrom(t))
+            .Where(t => !t.IsDefined(typeof(CompilerGeneratedAttribute), inherit: false))
             .ToArray();
 
         foreach (var backgroundServiceType in backgroundServiceTypes)
@@ -217,13 +221,14 @@ public class App
 
         var httpServiceTypes = targetAssembly
             .GetTypes()
-            .Where(t => t.IsClass && !t.IsAbstract)
+            .Where(t => t.IsClass && !t.IsAbstract && !t.IsNested)
             .Where(t =>
             {
                 var ns = t.Namespace;
                 return !string.IsNullOrEmpty(ns) &&
                        ns.EndsWith("Services.Http", StringComparison.OrdinalIgnoreCase);
             })
+            .Where(t => !t.IsDefined(typeof(CompilerGeneratedAttribute), inherit: false))
             .ToArray();
 
         foreach (var httpServiceType in httpServiceTypes)
