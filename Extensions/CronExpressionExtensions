@@ -1,0 +1,37 @@
+using Cronos;
+using Microsoft.Extensions.Logging;
+
+namespace CLOOPS.microservices.extensions;
+
+/// <summary>
+/// Contains extension methods for CronExpression
+/// </summary>
+public static class CronExpressionExtensions
+{
+    /// <summary>
+    /// Awaits until the next occurrence of the cron expression
+    /// </summary>
+    /// <param name="cronExpression">The cron expression to await</param>
+    /// <param name="logger">The logger to use</param>
+    /// <param name="cronStr">The cron string to use</param>
+    /// <param name="stoppingToken">The stopping token to use</param>
+    /// <returns>True if the next occurrence is found, false otherwise</returns>
+    public static async Task<bool> AwaitUntilNextOccurrenceAsync(this CronExpression cronExpression, ILogger _logger, string cronStr, string schedulerName, CancellationToken stoppingToken)
+    {
+        var nextOccurrence = cronExpression?.GetNextOccurrence(DateTimeOffset.Now, TimeZoneInfo.Local);
+        if (!nextOccurrence.HasValue)
+        {
+            _logger.LogError("[CronExpressionExtension]::Cannot determine next cron occurrence: {cron}", cronStr);
+            await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
+            return false;
+        }
+
+        var delay = nextOccurrence.Value - DateTimeOffset.Now;
+        if (delay > TimeSpan.Zero)
+        {
+            _logger.LogDebug("[CronExpressionExtension]::{schedulerName}::Next occurrence scheduled for {nextRun}", schedulerName, nextOccurrence.Value);
+            await Task.Delay(delay, stoppingToken);
+        }
+        return true;
+    }
+}
