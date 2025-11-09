@@ -23,7 +23,7 @@ public class App
     /// <summary>
     /// The application settings
     /// </summary>
-    public AppSettings appSettings;
+    public BaseAppSettings appSettings;
     /// <summary>
     /// The host application builder
     /// </summary>
@@ -39,7 +39,7 @@ public class App
     /// </summary>
     public App()
     {
-        appSettings = new AppSettings();
+        appSettings = new BaseAppSettings();
         string introMessage = $@"
              _____                            _   _               _                           
             / ____|                          | | (_)             | |                          

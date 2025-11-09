@@ -15,7 +15,7 @@ public class NatsLifecycleService : BackgroundService
     private readonly ICloopsNatsClient _client;
     private readonly ILogger<NatsLifecycleService> _logger;
     private readonly IServiceProvider _sp;
-    private readonly AppSettings _appsettings;
+    private readonly BaseAppSettings _appsettings;
 
     /// <summary>
     /// Creates an instance of NatsLifecycleService Instance
@@ -28,7 +28,7 @@ public class NatsLifecycleService : BackgroundService
         ICloopsNatsClient client,
         ILogger<NatsLifecycleService> logger,
         IServiceProvider sp,
-        AppSettings appSettings
+        BaseAppSettings appSettings
     )
     {
         _client = client;

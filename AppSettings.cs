@@ -5,7 +5,7 @@ using System.Reflection;
 /// These are loaded from the environment variables.
 /// You can inherit this class and expand your own settings.
 /// </summary>
-public class AppSettings
+public class BaseAppSettings
 {
     /// <summary>
     /// Gets a value indicating whether verbose debugging is enabled.
