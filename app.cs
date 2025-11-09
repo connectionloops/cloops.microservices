@@ -30,6 +30,11 @@ public class App
     public HostApplicationBuilder builder;
 
     /// <summary>
+    /// The host application
+    /// </summary>
+    public IHost host;
+
+    /// <summary>
     /// Creates the DI pipeline and starts the application.
     /// </summary>
     public App()
@@ -93,6 +98,19 @@ public class App
         RegisterServices();
         RegisterBackgroundServices();
         RegisterHttpServices();
+
+        // build it
+        host = builder.Build();
+    }
+
+    /// <summary>
+    /// Runs the application asynchronously
+    /// usage: await app.RunAsync().ConfigureAwait(false);
+    /// </summary>
+    /// <returns>A task that represents the asynchronous operation</returns>
+    public Task RunAsync()
+    {
+        return host.RunAsync();
     }
 
     private void RegisterControllers()
