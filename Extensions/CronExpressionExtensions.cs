@@ -1,7 +1,7 @@
 using Cronos;
 using Microsoft.Extensions.Logging;
 
-namespace CLOOPS.microservices.extensions;
+namespace CLOOPS.microservices.Extensions;
 
 /// <summary>
 /// Contains extension methods for CronExpression
