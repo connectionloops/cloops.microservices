@@ -5,7 +5,7 @@ namespace CLOOPS.microservices;
 /// <summary>
 /// Contains utility functions for the application
 /// </summary>
-public class Util : CLOOPS.NATS.Util
+public class BaseUtil : CLOOPS.NATS.BaseNatsUtil
 {
     /// <summary>
     /// Parses a cron expression and returns a CronExpression object

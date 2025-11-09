@@ -261,12 +261,12 @@ public class DB : IDB
         else if (pinfo.PropertyType.IsArray || (pinfo.PropertyType.IsGenericType && pinfo.PropertyType.GetGenericTypeDefinition() == typeof(List<>)))
         {
             var jarr = JsonNode.Parse(columnValue == DBNull.Value ? "[]" : (columnValue.ToString() ?? "[]"));
-            pinfo.SetValue(item, jarr.Deserialize(pinfo.PropertyType, CLOOPS.NATS.Util.JsonSerializerOptions));
+            pinfo.SetValue(item, jarr.Deserialize(pinfo.PropertyType, BaseUtil.JsonSerializerOptions));
         }
         else
         {
             var jobj = JsonNode.Parse(columnValue == DBNull.Value ? "{}" : (columnValue.ToString() ?? "{}"));
-            pinfo.SetValue(item, jobj.Deserialize(pinfo.PropertyType, CLOOPS.NATS.Util.JsonSerializerOptions));
+            pinfo.SetValue(item, jobj.Deserialize(pinfo.PropertyType, BaseUtil.JsonSerializerOptions));
         }
     }
 
