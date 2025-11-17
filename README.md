@@ -27,6 +27,9 @@ Once the SDK is pulled in, it is just a one-liner setup to have full-fledged mic
 # install the template (If you do not have it)
 dotnet new install cloops.microservice.template
 
+# If you have the template, but want to make sure you get the latest one
+dotnet new uninstall cloops.microservices.template
+
 # Create a new project
 dotnet new cloops.microservice -n <name_of_service>
 ```
