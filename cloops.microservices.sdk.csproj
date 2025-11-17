@@ -22,6 +22,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="cloops.nats" Version="*" />
+    <PackageReference Include="cloops.nats.schema" Version="*" />
     <PackageReference Include="cronos" Version="0.11.1" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.1" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="9.0.0" />
