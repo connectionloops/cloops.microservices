@@ -97,6 +97,7 @@ public class App
         ConfigureOTEL();
         Console.WriteLine("Configured OpenTelemetry");
 
+        RegisterControllers();
         RegisterServices();
         RegisterBackgroundServices();
         RegisterHttpServices();
@@ -113,6 +114,29 @@ public class App
     public Task RunAsync()
     {
         return host.RunAsync();
+    }
+
+    private void RegisterControllers()
+    {
+        var targetAssembly = ResolveTargetAssembly();
+
+        var controllerTypes = targetAssembly
+            .GetTypes()
+            .Where(t => t.IsClass && !t.IsAbstract && !t.IsNested)
+            .Where(t =>
+            {
+                var ns = t.Namespace;
+                return !string.IsNullOrEmpty(ns) &&
+                       ns.EndsWith("Controllers", StringComparison.OrdinalIgnoreCase);
+            })
+            .Where(t => !t.IsDefined(typeof(CompilerGeneratedAttribute), inherit: false))
+            .ToArray();
+
+        foreach (var controllerType in controllerTypes)
+        {
+            builder.Services.AddSingleton(controllerType);
+            Console.WriteLine($"Registered controller: {controllerType.Name}");
+        }
     }
 
     private void RegisterServices()

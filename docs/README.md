@@ -9,8 +9,8 @@ This documentation is designed to guide you through building microservices with 
 ### What You'll Learn
 
 - 🚀 **Getting Started**: Installation and setup instructions
-- 🔧 **Core Concepts**: Dependency injection, configuration, and service registration
-- 📡 **NATS Integration**: Building consumers and implementing request-reply patterns
+- 🔧 **Core Concepts**: Dependency injection, configuration, controller and service registration
+- 📡 **NATS Integration**: Building controllers with consumers and implementing request-reply or publish-subscribe patterns
 - 💾 **Data & Communication**: Database operations and inter-service communication
 - ⚡ **Advanced Features**: Distributed locking, observability, and more
 
@@ -32,16 +32,17 @@ Before diving in, it's recommended that you:
 - **4. 📨 [Registering your first NATS consumer](./consumer.md)**
 - **5. 📋 [Strong Schema Architecture](./schema.md)**
 - **6. 🛠️ [Utility Functions](./util.md)**
-- **7. 🔧 [Services](./services.md)**
-- **8. 💾 [Making Database Calls](./db.md)**
-- **9. 🌐 [Invoking other services](./api.calls.md)**
-- **10. 📊 Observability**
-  - **10.1. 📝 [Logging](./logging.md)**
-  - **10.2. 📈 [Metrics](./metrics.md)**
-  - **10.3. 🔍 Tracing (WIP)**
-- **11. 🚩 Feature Flagging (WIP)**
-- **12. 🗄️ NimbusDb (WIP)**
-- **13. ⏰ Background Jobs(WIP)**
-- **14. 🔒 [Distributed Locks](./distributed-locks.md)**
-- **15. 🔐 Decentralized JWT Auth for UI**
-- **16. 💨 Caching (WIP)**
+- **7. 🎮 [Controllers](./controllers.md)**
+- **8. 🔧 [Services](./services.md)**
+- **9. 💾 [Making Database Calls](./db.md)**
+- **10. 🌐 [Invoking other services](./api.calls.md)**
+- **11. 📊 Observability**
+  - **11.1. 📝 [Logging](./logging.md)**
+  - **11.2. 📈 [Metrics](./metrics.md)**
+  - **11.3. 🔍 Tracing (WIP)**
+- **12. 🚩 Feature Flagging (WIP)**
+- **13. 🗄️ NimbusDb (WIP)**
+- **14. ⏰ Background Jobs(WIP)**
+- **15. 🔒 [Distributed Locks](./distributed-locks.md)**
+- **16. 🔐 Decentralized JWT Auth for UI**
+- **17. 💨 Caching (WIP)**

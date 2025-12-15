@@ -1,55 +1,77 @@
 # Services
 
-Services are the primary components in cloops.microservices. Any class that's doing some business logic functionality is a service. It is similar to a classic DI enabled REST application with controllers and services. Few examples of services are -
+Services are the primary components in cloops.microservices that contain your business logic. They are similar to services in classic DI-enabled REST applications like Spring and ASP.NET. Services work with **pure C# objects** (no NATS wrappers), making them testable, reusable, and independent of the transport layer.
 
-- `JobService` - A service that accepts a job and processes it on a set of workers
+Few examples of services are:
+
+- `JobService` - A service that processes jobs and returns job results
 - `WeatherService` - A service that makes a 3P API call to get weather information
-- `DbBnRService` - A service that takes backup of databases on a regular schedule and also provides functions to restore a backup to a database.
+- `DbBnRService` - A service that takes backup of databases on a regular schedule and also provides functions to restore a backup to a database
 
-Services are further divided into three types -
+Services are further divided into three types:
 
-- Traditional: Nothing special, just normal services.
-- Http: services that make a third party (3P) http api call
-- Background: services that run in background that do some activity continuously (typically on a schedule) .e.g some sort of clean up.
+- **Traditional**: Normal services containing business logic. These return pure C# objects.
+- **Http**: Services that make third party (3P) HTTP API calls
+- **Background**: Services that run in the background and do some activity continuously (typically on a schedule), e.g., some sort of cleanup
 
-Any member function in a service can act as a NATS consumer and listen for incoming messages on a subject.
+> **Important**: Services should **not** contain `[NatsConsumer]` attributes. NATS message handling belongs in **Controllers**. This separation allows services to be tested independently and reused across different contexts.
 
 ## Types of services
 
 ### Traditional Services
 
-The default type. Nothing special about it. Used for purposes mentioned above in main services section. Most NATS handlers will be registered as traditional services.
+The default type. Traditional services contain your business logic and return pure C# objects. They are called by controllers (which handle NATS messages) or other services.
 
-> **To register a class as traditional service it has to belong to a namespace ending with `Services` . e.g. `Cljps.Services`**
+> **To register a class as a traditional service, it must belong to a namespace ending with `Services`. e.g. `Cljps.Services`**
 
-e.g. below service has a function that responds to health requests coming in on NATS subject `health.cljps.scheduler`
+**Key characteristics:**
+
+- Return pure C# objects (no `NatsMsg<T>` wrappers)
+- No `[NatsConsumer]` attributes (those belong in controllers)
+- Can be easily unit tested without NATS infrastructure
+- Can be reused across different controllers or contexts
+
+Example of a traditional service:
 
 ```cs
-using CLOOPS.NATS.Attributes;
-using CLOOPS.NATS.Meta;
-using CLOOPS.NATS.Messages;
-using NATS.Client.Core;
+using Microsoft.Extensions.Logging;
 
 namespace cljps.scheduler.services;
 
 public class HealthService
 {
+    private readonly ILogger<HealthService> _logger;
+    private readonly AppSettings _appSettings;
 
-    [NatsConsumer(_subject: "health.cljps.scheduler")]
-    public Task<NatsAck> GetHealth(NatsMsg<string> msg, CancellationToken ct = default)
+    public HealthService(ILogger<HealthService> logger, AppSettings appSettings)
     {
-        var reply = new HealthReply
+        _logger = logger;
+        _appSettings = appSettings;
+    }
+
+    // Returns pure C# object - no NATS wrappers
+    public HealthStatus GetHealthStatus()
+    {
+        _logger.LogDebug("Getting health status");
+
+        return new HealthStatus
         {
-            Status = new()
-            {
-                ["appName"] = "cljps.scheduler",
-                ["appStatus"] = "ok"
-            }
+            AppName = _appSettings.AssemblyName,
+            Status = "ok",
+            Timestamp = DateTimeOffset.UtcNow
         };
-        return Task.FromResult(new NatsAck(_isAck: true, _reply: reply));
     }
 }
+
+public class HealthStatus
+{
+    public string AppName { get; set; }
+    public string Status { get; set; }
+    public DateTimeOffset Timestamp { get; set; }
+}
 ```
+
+This service would be called by a controller that handles the NATS message. See [Controllers](./controllers.md) for how to handle NATS messages.
 
 ### Background Services
 
@@ -230,13 +252,21 @@ When creating a new service, use the following guidelines to determine which typ
    - Examples: Job cleanup, health checks, scheduled backups, periodic data synchronization
    - These services run continuously and typically operate on a schedule (cron-based)
 
-3. **For NATS handlers** → Use a **Traditional Service**
+3. **For business logic** → Use a **Traditional Service**
+
+   - When you need to implement business logic that can be called by controllers or other services
+   - Services return pure C# objects (no NATS wrappers)
+   - Examples: Order processing logic, data validation, business rule enforcement
+   - **Note**: NATS message handling belongs in **Controllers**, not services
+
+4. **For NATS message handling** → Use a **Controller** (not a service)
 
    - When you need to handle NATS messages using `[NatsConsumer]` attributes
-   - Most message handlers will be traditional services
-   - Examples: Health check handlers, job processing handlers, event consumers
+   - Controllers receive `NatsMsg<T>` and return `NatsAck`
+   - Controllers call services to perform business logic
+   - See [Controllers](./controllers.md) for details
 
-4. **Anything else** → Use a **Traditional Service**
+5. **Anything else** → Use a **Traditional Service**
    - Default choice for any business logic that doesn't fit the above categories
    - General-purpose services for your application logic
    - Examples: Data processing, business rule validation, internal utilities

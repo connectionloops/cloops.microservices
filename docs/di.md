@@ -1,18 +1,19 @@
 # Automated Dependency Injection (DI) Setup
 
-Any app created with `cloops.microservices` creates an ApplicationHost which acts as the DI container. All the services are registered in it and can be accessed by any other service. The DI setup is automatic in the sense that you just have to keep your services in correct namespaces and the framework will auto register them.
+Any app created with `cloops.microservices` creates an ApplicationHost which acts as the DI container. All controllers, services, and background services are registered in it and can be accessed by any other component. The DI setup is automatic in the sense that you just have to keep your classes in correct namespaces and the framework will auto register them.
 
 ## Namespace Rules
 
-cloops.microservices require a very strict namespace structure to auto register your services into DI container properly
+cloops.microservices require a very strict namespace structure to auto register your classes into DI container properly
 
 let's assume your main namespace is `cloops.app1`
 
+- All controllers (NATS message handlers) should be in namespace `cloops.app1.controllers`
 - All traditional services should be in namespace `cloops.app1.services`
 - All http services should be in namespace `cloops.app1.services.http`
 - All background services should be in namespace `cloops.app1.services.background`
 
-If you need further organization you need to add it before `.services` part. e.g. `cloops.app1.BnR.services`. `cloops.microservices` matches against "ends with".
+If you need further organization you need to add it before the namespace suffix part. e.g. `cloops.app1.BnR.services` or `cloops.app1.orders.controllers`. `cloops.microservices` matches against "ends with".
 
 ## Project Structure
 
@@ -23,12 +24,14 @@ This is not mandatory. But, we recommend below file structure to cleanly organiz
 ```
 - Root
 - src
+  - Controllers
+    - *.cs                          All controllers (NATS message handlers with [NatsConsumer] attributes)
   - Services
     - http
         - *.cs                      All services with managed http client for outbound 3P API calls.
     - background
-        - *.cs                      All background services (services that do something on a continuously (e.g. on a schedule))
-    - *.cs                          All other services, incl NATS handlers. Feel free to create your own hierarchy to organize the code
+        - *.cs                      All background services (services that do something continuously, e.g. on a schedule)
+    - *.cs                          All traditional services (business logic, return pure C# objects)
   - Util
     - Util.cs                       Utility functions
   - Program.cs                      Startup and app setup
@@ -48,7 +51,7 @@ await app.RunAsync();
 
 ```
 
-This sets up the application, registers all the services, connects to NATS and starts your consumers and background services and everything else you have in your app.
+This sets up the application, registers all controllers and services, connects to NATS and starts your consumers and background services and everything else you have in your app.
 
 ## Accessing a service
 
