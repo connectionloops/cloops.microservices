@@ -38,10 +38,13 @@ public class App
     /// <summary>
     /// Creates the DI pipeline and starts the application.
     /// </summary>
-    public App()
+    /// <param name="introMessageProvider">Optional function that takes BaseAppSettings and returns a custom intro message. If not provided, a default message will be used.</param>
+    public App(Func<BaseAppSettings, string>? introMessageProvider = null)
     {
         appSettings = new BaseAppSettings();
-        string introMessage = $@"
+        string introMessage = introMessageProvider != null
+            ? introMessageProvider(appSettings)
+            : $@"
              _____                            _   _               _                           
             / ____|                          | | (_)             | |                          
             | |     ___  _ __  _ __   ___  ___| |_ _  ___  _ __   | |     ___   ___  _ __  ___ 
@@ -56,7 +59,7 @@ public class App
 
             App:                     {appSettings.AssemblyName}
             NATS URL:                {appSettings.NatsURL}
-            CCNP OTEL Endpoint:      {appSettings.CcnpOtelEndpoint}
+            OTEL Endpoint:           {appSettings.OtelEndpoint}
             Cluster:                 {appSettings.Cluster}
             Enable NATS Consumers:   {appSettings.EnableNatsConsumers}
         ";
@@ -94,8 +97,6 @@ public class App
         ConfigureOTEL();
         Console.WriteLine("Configured OpenTelemetry");
 
-
-        RegisterControllers();
         RegisterServices();
         RegisterBackgroundServices();
         RegisterHttpServices();
@@ -112,29 +113,6 @@ public class App
     public Task RunAsync()
     {
         return host.RunAsync();
-    }
-
-    private void RegisterControllers()
-    {
-        var targetAssembly = ResolveTargetAssembly();
-
-        var controllerTypes = targetAssembly
-            .GetTypes()
-            .Where(t => t.IsClass && !t.IsAbstract && !t.IsNested)
-            .Where(t =>
-            {
-                var ns = t.Namespace;
-                return !string.IsNullOrEmpty(ns) &&
-                       ns.EndsWith("Controllers", StringComparison.OrdinalIgnoreCase);
-            })
-            .Where(t => !t.IsDefined(typeof(CompilerGeneratedAttribute), inherit: false))
-            .ToArray();
-
-        foreach (var controllerType in controllerTypes)
-        {
-            builder.Services.AddSingleton(controllerType);
-            Console.WriteLine($"Registered controller: {controllerType.Name}");
-        }
     }
 
     private void RegisterServices()
@@ -259,8 +237,8 @@ public class App
 
         if (targetAssembly == null)
         {
-            Console.WriteLine("No assembly found for controller registration.");
-            throw new Exception("No assembly found for controller registration.");
+            Console.WriteLine("No assembly found for registration.");
+            throw new Exception("No assembly found for registration.");
         }
         return targetAssembly;
     }
@@ -319,8 +297,8 @@ public class App
     private void ConfigureOTEL()
     {
         string otelServiceName = appSettings.AssemblyName;
-        string otelServiceEndpoint = appSettings.CcnpOtelEndpoint;
-        string otelHeaders = appSettings.CcnpOtelHeaders;
+        string otelServiceEndpoint = appSettings.OtelEndpoint;
+        string otelHeaders = appSettings.OtelHeaders;
         string clusterName = appSettings.Cluster;
         string appName = otelServiceName;
 

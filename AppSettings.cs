@@ -30,12 +30,12 @@ public class BaseAppSettings
     /// <summary>
     /// Gets the OpenTelemetry endpoint for CCNP.
     /// </summary>
-    public string CcnpOtelEndpoint { get; init; } = Environment.GetEnvironmentVariable("CCNPOTELENDPOINT") ?? "";
+    public string OtelEndpoint { get; init; } = Environment.GetEnvironmentVariable("OTELENDPOINT") ?? "";
 
     /// <summary>
     /// Gets the OpenTelemetry headers for CCNP.
     /// </summary>
-    public string CcnpOtelHeaders { get; init; } = Environment.GetEnvironmentVariable("CCNPOTELHEADERS") ?? "";
+    public string OtelHeaders { get; init; } = Environment.GetEnvironmentVariable("OTELHEADERS") ?? "";
 
     /// <summary>
     /// Gets the cluster name the service targets.

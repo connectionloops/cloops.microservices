@@ -1,15 +1,25 @@
 # CLOOPS Microservices SDK
 
-The official Connection Loops SDK for building high performance microservices designed to run on CCNP. This is an opinionated approach to building microservices.
+An opinionated library to build highly available, lean and scalable cloud native microservices using [NATS](https://nats.io/) as primary communication layer.
 
 ## 🚀 Overview
 
-The goal here is to minimize the undifferentiated work and get started with a project quickly. Cloops Microservices SDK gives you all the bells and whistles so that you can develop your service quite effortlessly.
-Once the SDK is pulled in, it is just a one-liner setup to have full-fledged microservice up and running.
+The goal here is to minimize the undifferentiated work and give you all the bells and whistles for a lean, high performance and scalable microservices setup. Check out [docs](/docs/README.md) for more details on how this SDK works, and prepare to be impressed!
 
-> This SDK is supposed to be used when the primary way to communicate with your microservice is NATS. **i.e. No REST interface**
+> This SDK uses NATS as the primary way for your services to communicate with each other. **i.e. No REST interface**
 
-### ⚡ Benefits of using NATS over REST
+### 💎 Why C# for Microservices?
+
+Modern C# is an excellent choice for building microservices! It's lean, fast, and fully open source with cross-platform support. With .NET's native Linux support, you get exceptional performance that rivals or exceeds many other languages. C# offers a perfect balance of developer productivity, type safety, and runtime efficiency—making it ideal for high-throughput, low-latency microservices architectures. Plus, with features like async/await, minimal APIs, and native AOT compilation, you can build services that are both performant and maintainable.
+
+It is highly recommended that you familiarize yourself with NATS. Below are some really good resources -
+
+1. [YouTube Playlist](https://www.youtube.com/playlist?list=PLgqCaaYodvKY22TpvwlsalIArTmc56W9h)
+2. [Official Docs](https://docs.nats.io/)
+
+This SDK focuses on building microserivices using NATS. It is based on the [cloops.nats](https://github.com/connectionloops/cloops.nats) which provides annotations based way to define consumers and bunch of other foundational things. Please do check it out.
+
+### ⚡ Why use NATS over REST?
 
 - Lower latency
 - Higher throughput
@@ -18,80 +28,17 @@ Once the SDK is pulled in, it is just a one-liner setup to have full-fledged mic
 - No additional hops for load balancing
 - Decentralized PKI based AuthN and AuthZ
 - No network ports exposed
+- Easy to create highly available, globally distributed services
 
-## 🧩 Installation
+If you would like to know more, I would highly recommend checking out below resources
 
-### ✨ New Projects (Recommended)
+- [Rethinking Microservices with NATS](https://youtu.be/AiUazlrtgyU?si=B6XDRiniyw8hu4GF)
+- [this podcast from nats.fm](https://podcasts.apple.com/us/podcast/ep03-escaping-the-http-mindset-with-nats-io/id1700459773?i=1000625476010)
+- [NATS super clusters](https://docs.nats.io/running-a-nats-service/configuration/gateways)
 
-```bash
-# install the template (If you do not have it)
-dotnet new install cloops.microservice.template
+## Documentation
 
-# If you have the template, but want to make sure you get the latest one
-dotnet new uninstall cloops.microservices.template
-
-# Create a new project
-dotnet new cloops.microservice -n <name_of_service>
-```
-
-### 🔄 Existing Projects
-
-Add cloops.nats package reference to your `.csproj` file. Please note we deliberately want all of our consumers to stay on latest version of the SDK.
-
-```xml
-<PackageReference Include="cloops.microservices" Version="*" />
-```
-
-Once added, just to `dotnet restore` to pull in the SDK.
-
-Usage (Program.cs) -
-
-```cs
-
-using CLOOPS.microservices;
-
-var app = new App();
-await app.RunAsync();
-
-```
-
-> Please note: since cloops microservices is quite opinionated, you might need to restructure project to make it work. Please read the features section for more information.
-
-## 🛠️ Features
-
-Out of the box implementations of -
-
-- Observability
-  - Logging
-  - Metrics
-  - _Tracing (WIP)_
-- _Feature Flagging (WIP)_
-- _Background jobs (WIP)_
-- Automated DI Setup
-  - Controllers
-    - Each function is a handler for a NATS subject.
-    - Controller is the starting point to process a request or published message.
-    - (All classes under `.\*controllers` namespace are auto registered)
-  - Services
-    - A service executes business logic.
-    - Typically controller executes one or more services as per what's needed to get the job done.
-    - All classes under `.\*services` namespace are auto registered
-  - Background Services
-    - A piece of code that runs in background (usually on a continuous schedule)
-    - e.g. a cleanup service that deletes some things every 2 hours.
-    - All classes under `.\*BackgroundServices` namespace and inherited from `BackgroundService` class are auto registered
-  - HTTP services
-    - Services with in-built HTTP client
-    - Used to make REST API calls to other third party services
-- AppSettings
-- Util
-- MSSQL Server Client (DB.cs) (async streaming supported)
-- CLOOPS.NATS functionality
-  - Serialization and Deserialization
-  - Client
-  - Consumers
-  - Publishers
-  - KV and Distributed locking
+Check out the [docs](/docs).
 
 ## 🌱 Environment Variables used by SDK
 
@@ -141,22 +88,8 @@ Below are the environment variables used by `CLOOPS.NATS`
 
 ## 🧭 Additional Setup you might need to do
 
-1. Database deployment
+1. Database deployments.
 2. NATS JetStream streams, consumer creation
-3. Doppler project creation
+3. Secret management (Doppler) integration
 
-Please reach out to platform team for help on these.
-
-## ❓ FAQ
-
-### 🤔 How do I use a different version of `CLOOPS.NATS`?
-
-`CLOOPS.Microservices` ships with latest version of `CLOOPS.NATS`. So all you have to do is just rebuild your service to bump up the `CLOOPS.NATS` version.
-
-With that said, you can override exact version in your project if you need to. Please see below code. If you keep version as "\*", whenever your project gets built, it will pull in latest `CLOOPS.NATS` version.
-
-```
-<PackageReference Include="cloops.microservices" Version="*" />
-    <!-- uncomment this if you need a specific version of cloops.nats -->
-    <!-- <PackageReference Include="cloops.nats" Version="*" /> -->
-```
+These things are usually taken care at CI/CD level or as manual one time setup operations or combination of both. How to do these things highly varies based on project and company.

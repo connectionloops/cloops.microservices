@@ -13,16 +13,15 @@
     <PackageId>cloops.microservices</PackageId>
     <Authors>Gaurav Kalele</Authors>
     <Company>Connection Loops</Company>
-    <PackageDescription>Official SDK to effortlessly build microservices in Connection Loops.</PackageDescription>
+    <PackageDescription>Opinionated SDK to effortlessly build lean highly performant cloud native microservices</PackageDescription>
     <PackageTags>sdk;cloops;microservices;</PackageTags>
-    <RepositoryUrl>https://dev.azure.com/clvc/MeAtConnectionLoops/_git/cloops.microservices</RepositoryUrl>
+    <RepositoryUrl>https://github.com/connectionloops/cloops.microservices</RepositoryUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://dev.azure.com/clvc/MeAtConnectionLoops/_git/cloops.microservices</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/connectionloops/cloops.microservices</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="cloops.nats" Version="*" />
-    <PackageReference Include="cloops.nats.schema" Version="*" />
     <PackageReference Include="cronos" Version="0.11.1" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.1" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="9.0.0" />

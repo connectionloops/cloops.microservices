@@ -12,8 +12,9 @@ public static class CronExpressionExtensions
     /// Awaits until the next occurrence of the cron expression
     /// </summary>
     /// <param name="cronExpression">The cron expression to await</param>
-    /// <param name="logger">The logger to use</param>
+    /// <param name="_logger">The logger to use</param>
     /// <param name="cronStr">The cron string to use</param>
+    /// <param name="schedulerName">The name of scheduler for logging</param>
     /// <param name="stoppingToken">The stopping token to use</param>
     /// <returns>True if the next occurrence is found, false otherwise</returns>
     public static async Task<bool> AwaitUntilNextOccurrenceAsync(this CronExpression cronExpression, ILogger _logger, string cronStr, string schedulerName, CancellationToken stoppingToken)
