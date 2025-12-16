@@ -27,7 +27,7 @@ This is the recommended way to setup a new project within Connection Loops as we
 dotnet new install cloops.microservice.template
 
 # If you have the template, but want to make sure you get the latest one
-dotnet new uninstall cloops.microservices.template
+dotnet new uninstall cloops.microservice.template
 
 # Create a new project
 dotnet new cloops.microservice -n <name_of_service>
