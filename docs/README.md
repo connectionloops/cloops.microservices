@@ -46,3 +46,4 @@ Before diving in, it's recommended that you:
 - **15. 🔒 [Distributed Locks](./distributed-locks.md)**
 - **16. 🔐 Decentralized JWT Auth for UI**
 - **17. 💨 Caching (WIP)**
+- **18. 🧭 [Additional Setup](./additional-setup.md)**

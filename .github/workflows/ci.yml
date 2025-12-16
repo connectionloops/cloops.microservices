@@ -1,0 +1,159 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  PROJECT: cloops.microservices.sdk.csproj
+  BUILD_CONFIGURATION: Release
+  MAJOR: 1
+  MINOR: 1
+
+jobs:
+  build:
+    name: Build and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 9.0 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Calculate package version
+        id: version
+        run: |
+          VERSION="${{ env.MAJOR }}.${{ env.MINOR }}.${{ github.run_number }}"
+          echo "PACKAGE_VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Package version: $VERSION"
+
+      - name: Restore dependencies
+        run: dotnet restore ${{ env.PROJECT }}
+
+      - name: Build project
+        run: dotnet build ${{ env.PROJECT }} --configuration ${{ env.BUILD_CONFIGURATION }} --no-restore -p:Version=${{ steps.version.outputs.PACKAGE_VERSION }}
+
+      - name: Run tests
+        run: dotnet test **/*Tests/*.csproj --configuration ${{ env.BUILD_CONFIGURATION }} --no-build --verbosity normal
+        continue-on-error: true
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: "**/TestResults/**/*"
+          if-no-files-found: ignore
+
+  publish:
+    name: Publish to NuGet
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 9.0 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Calculate package version
+        id: version
+        run: |
+          VERSION="${{ env.MAJOR }}.${{ env.MINOR }}.${{ github.run_number }}"
+          echo "PACKAGE_VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Package version: $VERSION"
+
+      - name: Restore dependencies
+        run: dotnet restore ${{ env.PROJECT }}
+
+      - name: Build project
+        run: dotnet build ${{ env.PROJECT }} --configuration ${{ env.BUILD_CONFIGURATION }} --no-restore -p:Version=${{ steps.version.outputs.PACKAGE_VERSION }}
+
+      - name: Pack NuGet package
+        run: dotnet pack ${{ env.PROJECT }} --configuration ${{ env.BUILD_CONFIGURATION }} --no-build --output ./artifacts -p:Version=${{ steps.version.outputs.PACKAGE_VERSION }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-packages
+          path: ./artifacts/**/*.nupkg
+
+      - name: Push to NuGet
+        run: dotnet nuget push ./artifacts/**/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+
+      - name: Create GitHub Tag
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const version = '${{ steps.version.outputs.PACKAGE_VERSION }}';
+            const tag = `v${version}`;
+
+            // Check if tag already exists
+            try {
+              await github.rest.git.getRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `tags/${tag}`
+              });
+              console.log(`Tag ${tag} already exists, skipping creation.`);
+            } catch (error) {
+              if (error.status === 404) {
+                // Tag doesn't exist, create it
+                const sha = context.sha;
+                await github.rest.git.createRef({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  ref: `refs/tags/${tag}`,
+                  sha: sha
+                });
+                console.log(`Created tag ${tag} at ${sha}`);
+              } else {
+                throw error;
+              }
+            }
+
+      - name: Create GitHub Release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const version = '${{ steps.version.outputs.PACKAGE_VERSION }}';
+            const tag = `v${version}`;
+
+            // Check if release already exists
+            try {
+              await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag: tag
+              });
+              console.log(`Release for tag ${tag} already exists, skipping creation.`);
+            } catch (error) {
+              if (error.status === 404) {
+                // Release doesn't exist, create it
+                await github.rest.repos.createRelease({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  tag_name: tag,
+                  name: `Release ${tag}`,
+                  body: `## Release ${tag}\n\n- Version: ${version}\n- Build Number: ${{ github.run_number }}\n- Commit: ${{ github.sha }}\n\nAutomated release created by CI pipeline.`,
+                  draft: false,
+                  prerelease: false
+                });
+                console.log(`Created release for tag ${tag}`);
+              } else {
+                throw error;
+              }
+            }
+

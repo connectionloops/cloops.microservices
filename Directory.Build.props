@@ -1,13 +1,11 @@
 <Project>
   <PropertyGroup>
-    <!-- Create full version string -->
-    <Version>$(packageVersion)</Version>
-    
+    <!-- Version is set via -p:Version=... in CI/CD pipeline -->
     <!-- Assembly version -->
-    <AssemblyVersion>$(packageVersion)</AssemblyVersion>
-    <FileVersion>$(packageVersion)</FileVersion>
+    <AssemblyVersion Condition="'$(Version)' != ''">$(Version)</AssemblyVersion>
+    <FileVersion Condition="'$(Version)' != ''">$(Version)</FileVersion>
     
     <!-- Package version -->
-    <PackageVersion>$(Version)</PackageVersion>
+    <PackageVersion Condition="'$(Version)' != ''">$(Version)</PackageVersion>
   </PropertyGroup>
 </Project> 

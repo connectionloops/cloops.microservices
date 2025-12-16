@@ -61,7 +61,28 @@ app.builder.Services.AddSingleton<AppSettings>(app.appSettings);
 
 ## Environment Variables
 
-Configuration values are loaded from environment variables. Set them before starting your application:
+Configuration values are loaded from environment variables. Set them before starting your application. Below is a comprehensive reference of all environment variables used by the SDK.
+
+### Environment Variables Reference
+
+| Variable Name | Category | Description | Default Value | Required |
+|--------------|----------|-------------|---------------|----------|
+| `DEBUG` | Microservice | Turns on verbose logging and additional diagnostics when set to `True` | `False` | No |
+| `NATS_URL` | NATS | Specifies the NATS server URL. For running on prod CCNP, set to `tls://nats-headless.ccnp.cloops.in:4222` for faster within cluster operations | `tls://nats.ccnp.cloops.in:4222` | No |
+| `NATS_CREDS` | NATS | Inline content of the NATS credentials file used for authentication | None | No |
+| `NATS_SUBSCRIPTION_QUEUE_SIZE` | NATS | Maximum limit of messages queued up for each subscription. Use this to control backpressure | `20000` | No |
+| `NATS_CONSUMER_MAX_DOP` | NATS | Maximum degree of parallelism for all consumers. These many messages can be processed in parallel from the message queue. This puts upper limit on rps (request per second) indirectly (e.g. if your avg latency is 200ms then max_dop × 5 is your max throughput). Increase this in order to support higher rps. Consider giving higher core / memory count as well | `128` | No |
+| `NATS_ACCOUNT_SIGNING_SEED` | NATS (Minting) | Signing account seed. **⚠️ Highly confidential. Only use in trusted services running on trusted infrastructure.** Used by minting service when you need your application to mint new NATS tokens. See instructions below | None | No |
+| `NATS_ACCOUNT_PUBLIC_KEY` | NATS (Minting) | Main account public key. **⚠️ Highly confidential. Only use in trusted services running on trusted infrastructure.** Used by minting service when you need your application to mint new NATS tokens. See instructions below | None | No |
+| `CCNPOTELENDPOINT` | Microservice | OTEL collector endpoint for exporting telemetry to CCNP | None | No |
+| `CCNPOTELHEADERS` | Microservice | Additional OTEL headers required when sending telemetry to CCNP | None | No |
+| `CLUSTER` | Microservice | Target cluster where the service runs | `ccnp` | No |
+| `CNSTR` | Microservice | SQL database connection string | None | No |
+| `ENABLE_NATS_CONSUMERS` | Microservice | Controls whether NATS consumers start with the service | `False` | No |
+
+### Setting Environment Variables
+
+Set environment variables before starting your application:
 
 ```bash
 export DEBUG=True
@@ -71,6 +92,25 @@ export CNSTR="Server=localhost;Database=mydb;..."
 export CLUSTER=production
 export ENABLE_NATS_CONSUMERS=True
 ```
+
+### NATS Minting Service Variables
+
+**⚠️ Caution:** The following environment variables are highly confidential and should only be used in trusted services running on trusted infrastructure. They are used by the minting service when you need your application to mint new NATS tokens.
+
+#### NATS_ACCOUNT_SIGNING_SEED
+
+**How to get it:**
+1. On nats-box
+2. Run `cd /data/nsc/nkeys/keys/A`
+3. Run `find . -type f -name "*.nk" -o -name "*.seed"`
+4. Run `cat <account-signing-public-key>.nk` to get the account signing seed
+   - **Important:** Remember to pick public key of signing account, not main account
+
+#### NATS_ACCOUNT_PUBLIC_KEY
+
+**How to get it:**
+- Run this on nats-box to get the account public key: `nsc list keys --account=<account-name>`
+  - **Important:** Remember to pick the main account, not signing key
 
 ## Secret Management
 

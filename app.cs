@@ -81,12 +81,12 @@ public class App
             Console.WriteLine("Configured DB");
         }
 
-        if (!string.IsNullOrEmpty(appSettings.NatsURL) && !string.IsNullOrEmpty(appSettings.NatsCreds))
+        if (!string.IsNullOrEmpty(appSettings.NatsURL))
         {
             var cnc = new CloopsNatsClient(
                 url: appSettings.NatsURL,
                 name: appSettings.AssemblyName,
-                creds: appSettings.NatsCreds
+                creds: (!string.IsNullOrEmpty(appSettings.NatsCreds)) ? appSettings.NatsCreds : null
             );
             builder.Services.AddSingleton<ICloopsNatsClient>(cnc);
             builder.Services.AddHostedService<NatsLifecycleService>();
