@@ -36,14 +36,15 @@ Before diving in, it's recommended that you:
 - **8. 🔧 [Services](./services.md)**
 - **9. 💾 [Making Database Calls](./db.md)**
 - **10. 🌐 [Invoking other services](./api.calls.md)**
-- **11. 📊 Observability**
-  - **11.1. 📝 [Logging](./logging.md)**
-  - **11.2. 📈 [Metrics](./metrics.md)**
-  - **11.3. 🔍 Tracing (WIP)**
-- **12. 🚩 Feature Flagging (WIP)**
-- **13. 🗄️ NimbusDb (WIP)**
-- **14. ⏰ Background Jobs(WIP)**
-- **15. 🔒 [Distributed Locks](./distributed-locks.md)**
-- **16. 🔐 Decentralized JWT Auth for UI**
-- **17. 💨 Caching (WIP)**
-- **18. 🧭 [Additional Setup](./additional-setup.md)**
+- **11. 🧪 [Manually Testing Microservices on local](./testing.md)**
+- **12. 📊 Observability**
+  - **12.1. 📝 [Logging](./logging.md)**
+  - **12.2. 📈 [Metrics](./metrics.md)**
+  - **12.3. 🔍 Tracing (WIP)**
+- **13. 🚩 Feature Flagging (WIP)**
+- **14. 🗄️ NimbusDb (WIP)**
+- **15. ⏰ Background Jobs(WIP)**
+- **16. 🔒 [Distributed Locks](./distributed-locks.md)**
+- **17. 🔐 Decentralized JWT Auth for UI**
+- **18. 💨 Caching (WIP)**
+- **19. 🧭 [Additional Setup](./additional-setup.md)**
