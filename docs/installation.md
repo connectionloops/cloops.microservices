@@ -16,9 +16,11 @@ docker run -p 4222:4222 -ti nats:latest --jetstream
 
 ### GitHub Template
 
-Easiest way to start with cloops.microservices. Bootstrap from our [GitHub Template](https://github.com/connectionloops/cloops.microservices.template)
+Easiest way to start with cloops.microservices especially if you are outside Connection Loops. Bootstrap from our [GitHub Template](https://github.com/connectionloops/cloops.microservices.template)
 
 ### Nuget Template
+
+This is the recommended way to setup a new project within Connection Loops as we do not use GitHub for our private repos.
 
 ```bash
 # install the template (If you do not have it)
