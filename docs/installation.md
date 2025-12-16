@@ -1,5 +1,17 @@
 # 🧩 Installation
 
+## Pre-requisite: Run NATS server
+
+1. Install docker from [here](https://www.docker.com/get-started/) if you don't already have it.
+2. Install .NET SDK 9.0 from [here](https://dotnet.microsoft.com/en-us/download/dotnet) Make sure to download the correct version as per your OS and architecture. Make sure to download dotnet 9 not 10.
+
+### Starting NATS server
+
+```bash
+docker pull nats:latest
+docker run -p 4222:4222 -ti nats:latest --jetstream
+```
+
 ## ✨ New Projects (Recommended)
 
 ### GitHub Template
