@@ -12,6 +12,55 @@ docker pull nats:latest
 docker run -p 4222:4222 -ti nats:latest --jetstream
 ```
 
+### Installing NATS CLI
+
+The NATS CLI is useful for local debugging and managing your NATS server. While the CLI automatically connects to `nats://127.0.0.1:4222` by default, setting up a context is recommended for clarity.
+
+#### macOS
+
+```bash
+brew tap nats-io/nats-tools
+brew install nats-io/nats-tools/nats
+```
+
+#### Windows
+
+**Option 1: Using Scoop (if you have Scoop installed)**
+
+```powershell
+scoop bucket add extras
+scoop install extras/natscli
+```
+
+**Option 2: Manual Installation**
+
+1. Download the latest NATS CLI release from the [official NATS CLI releases page](https://github.com/nats-io/natscli/releases)
+2. Extract the `nats-<version>-windows-amd64.zip` file
+3. Add the directory containing `nats.exe` to your system PATH:
+   - Press `Win + R`, type `sysdm.cpl`, and press Enter
+   - Go to the "Advanced" tab and click "Environment Variables"
+   - Under "System variables," select "Path" and click "Edit"
+   - Click "New" and add the path to the directory containing `nats.exe`
+   - Click "OK" to save changes
+4. Verify installation by opening a new command prompt and running:
+   ```powershell
+   nats --version
+   ```
+
+#### Setting up a local context (Optional but recommended)
+
+After installing the NATS CLI, you can create a context pointing to your local NATS instance:
+
+```bash
+# Create a context named 'local' pointing to the local NATS server
+nats context save local --server=nats://127.0.0.1:4222
+
+# Set 'local' as the default context
+nats context select local
+```
+
+> **Note:** The NATS CLI will automatically connect to `nats://127.0.0.1:4222` by default, so setting up a context is optional. However, it's useful for managing multiple environments or when you need to switch between different NATS servers.
+
 ## ✨ New Projects (Recommended)
 
 ### GitHub Template
