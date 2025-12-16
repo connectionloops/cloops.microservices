@@ -35,4 +35,4 @@ Modern C# is an excellent choice for building microservices! It's lean, fast, an
 
 Comprehensive guides available in the [docs](/docs) directory.
 
-> This SDK is built on [cloops.nats](https://github.com/connectionloops/cloops.nats), which provides annotation-based consumer definitions and foundational features. Familiarity with NATS is highly recommended:
+> This SDK is built on [cloops.nats](https://github.com/connectionloops/cloops.nats), which provides annotation-based consumer definitions and foundational features.

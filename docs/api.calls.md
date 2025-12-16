@@ -579,3 +579,7 @@ public class OrderProcessingService
 - **Use cancellation tokens**: Respect cancellation requests in async operations
 
 By following these patterns, you'll build reliable, type-safe communication between your microservices and external APIs.
+
+---
+
+[Back to documentation index](./README.md)

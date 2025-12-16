@@ -462,3 +462,7 @@ Always use `"AppMetrics"` as your meter name to ensure automatic OpenTelemetry i
 - ✅ **Multiple metric types**: Counters, histograms, gauges supported
 
 The SDK provides a complete metrics solution out of the box, while giving you full flexibility to add custom business metrics as needed.
+
+---
+
+[Back to documentation index](./README.md)

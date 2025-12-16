@@ -302,3 +302,7 @@ This schema architecture provides:
 By following this pattern and creating your own central schema repository, you build microservices that are more stable, easier to maintain, and less prone to runtime errors.
 
 For complete working examples and implementation details, refer to the [cloops.nats schema examples](https://github.com/connectionloops/cloops.nats/tree/main/examples/schema).
+
+---
+
+[Back to documentation index](./README.md)

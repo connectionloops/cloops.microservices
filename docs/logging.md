@@ -190,3 +190,7 @@ The SDK automatically enriches all logs with:
 - **Timestamp** and **Log Level**
 
 These enrichments help with filtering and correlation in log aggregation systems.
+
+---
+
+[Back to documentation index](./README.md)

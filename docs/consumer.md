@@ -412,6 +412,8 @@ public class OrderService
 
 - Learn about [Controllers](./controllers.md) and how they're organized
 - Learn about [Services](./services.md) and how they're organized
+- Learn about [Strong Schema](./schema.md) and how they're organized
 - Explore [Utility Functions](./util.md) available in the framework
 - Check out [Database Operations](./db.md) for data persistence
 - Review [Making Third Party API Calls](./api.calls.md) for external integrations
+- [Back to documentation index](./README.md)

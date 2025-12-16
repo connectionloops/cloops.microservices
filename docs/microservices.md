@@ -185,3 +185,9 @@ Microservices architecture provides significant advantages over monolithic appli
 Event-driven architecture, strong schema design, and the right communication patterns (powered by NATS) help mitigate these challenges. The `cloops.microservices` SDK provides a production-ready framework that standardizes these patterns, allowing you to build reliable, scalable microservices quickly.
 
 Whether you're deploying to Kubernetes, serverless platforms, or other container orchestration systems, the principles remain the same: build small, focused services with strong contracts, communicate through events, and maintain centralized schema governance.
+
+---
+
+## Next Steps
+
+- **[Getting Started](./installation.md)**

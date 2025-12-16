@@ -270,3 +270,7 @@ When creating a new service, use the following guidelines to determine which typ
    - Default choice for any business logic that doesn't fit the above categories
    - General-purpose services for your application logic
    - Examples: Data processing, business rule validation, internal utilities
+
+---
+
+[Back to documentation index](./README.md)

@@ -77,6 +77,7 @@ How these tasks are implemented varies significantly based on:
 - **Compliance requirements**: Some industries have specific requirements for database management and secret handling
 
 Generally, these setup tasks are:
+
 - **Infrastructure concerns**: Managed separately from application code
 - **Environment-specific**: Different configurations for dev, staging, and production
 - **One-time or automated**: Either set up once per environment or automated via CI/CD
@@ -87,3 +88,6 @@ Generally, these setup tasks are:
 - **[NATS Consumers](./consumer.md)**: How to define consumers in your application code
 - **[Database Operations](./db.md)**: How to use databases within your microservice
 
+---
+
+[Back to documentation index](./README.md)

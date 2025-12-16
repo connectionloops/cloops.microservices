@@ -73,4 +73,5 @@ If no custom function is provided, the default CLOOPS banner will be displayed.
 
 ## Next Steps
 
-- **[How to register NATS consumer]**
+- **[Automated DI setup](./di.md)**
+- [Back to documentation index](./README.md)

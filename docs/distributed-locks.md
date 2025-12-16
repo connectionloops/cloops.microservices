@@ -418,3 +418,7 @@ These defaults are suitable for most use cases. The automatic renewal ensures th
 - [Services](./services.md) - Learn about background services where distributed locks are commonly used
 - [Making API Calls](./api.calls.md) - See how `ICloopsNatsClient` is used in other contexts
 - [NATS Client Documentation](../cloops.nats/docs/CurrentFunctionality.md) - Detailed technical documentation on the underlying NATS client
+
+---
+
+[Back to documentation index](./README.md)

@@ -515,3 +515,7 @@ The `DB` class provides:
 - ✅ Cancellation support
 
 By following these patterns and best practices, you can efficiently and safely interact with your SQL Server database in your microservices.
+
+---
+
+[Back to documentation index](./README.md)

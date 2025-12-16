@@ -190,3 +190,4 @@ public class OrderController
 - [Registering Your First NATS Consumer](./consumer.md) - Learn how to create your first controller
 - [Services](./services.md) - Understand how services contain business logic
 - [NatsConsumer Attribute Options](./consumer.md#natsconsumerattribute-options) - Configure queue groups, durable consumers, etc.
+- [Back to documentation index](./README.md)
