@@ -15,7 +15,7 @@ public class BaseAppSettings
     /// <summary>
     /// Gets the NATS server URL.
     /// </summary>
-    public string NatsURL { get; init; } = Environment.GetEnvironmentVariable("NATS_URL") ?? "tls://nats.ccnp.cloops.in:4222";
+    public string NatsURL { get; init; } = Environment.GetEnvironmentVariable("NATS_URL") ?? "nats://localhost:4222";
 
     /// <summary>
     /// Gets the NATS credentials content.
