@@ -79,10 +79,13 @@ Traditional services can be automatically registered with their interface in the
 
 **Convention:**
 
-- The interface must be named `I{ServiceName}` (e.g., `IMyService` for `MyService`)
+- The interface must start with "I" (e.g., `IMyService`, `IOrderHandler`, `IOrderProcessor`, etc.)
 - The interface must be in the same namespace as the service class
+- The service class must implement the interface
 - If such an interface exists, the service will be registered as `AddSingleton<Interface, ConcreteType>()`
 - If no matching interface is found, the concrete type will be registered directly
+
+**Note:** The interface name does not need to match the service name. Any interface starting with "I" in the same namespace that the service implements will be used for registration.
 
 **Example:**
 

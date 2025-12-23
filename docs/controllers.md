@@ -29,10 +29,13 @@ Controllers can be automatically registered with their interface in the dependen
 
 **Convention:**
 
-- The interface must be named `I{ControllerName}` (e.g., `IOrderController` for `OrderController`)
+- The interface must start with "I" (e.g., `IOrderController`, `IOrderHandler`, `IOrderProcessor`, etc.)
 - The interface must be in the same namespace as the controller class
+- The controller class must implement the interface
 - If such an interface exists, the controller will be registered as `AddSingleton<Interface, ConcreteType>()`
 - If no matching interface is found, the concrete type will be registered directly
+
+**Note:** The interface name does not need to match the controller name. Any interface starting with "I" in the same namespace that the controller implements will be used for registration.
 
 **Example:**
 

@@ -189,14 +189,12 @@ public class App
     }
 
     /// <summary>
-    /// Finds the interface for a given type following the convention: I{TypeName} in the same namespace.
+    /// Finds the interface for a given type following the convention: interface starts with "I" and is in the same namespace.
     /// </summary>
     /// <param name="type">The concrete type to find an interface for</param>
     /// <returns>The interface type if found, null otherwise</returns>
     private Type? FindInterface(Type type)
     {
-        // Convention: Interface name is I{TypeName} in the same namespace
-        var expectedInterfaceName = $"I{type.Name}";
         var typeNamespace = type.Namespace;
 
         if (string.IsNullOrEmpty(typeNamespace))
@@ -204,13 +202,12 @@ public class App
             return null;
         }
 
-        // Look for the interface in the same assembly and namespace
-        var targetAssembly = ResolveTargetAssembly();
-        var interfaceType = targetAssembly
-            .GetTypes()
-            .FirstOrDefault(t => t.IsInterface &&
-                                 t.Name == expectedInterfaceName &&
-                                 t.Namespace == typeNamespace);
+        // Check all interfaces that the type implements
+        // Convention: Interface starts with "I" and is in the same namespace
+        var interfaceType = type
+            .GetInterfaces()
+            .FirstOrDefault(i => i.Name.StartsWith("I", StringComparison.Ordinal) &&
+                                 i.Namespace == typeNamespace);
 
         return interfaceType;
     }
