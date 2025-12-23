@@ -23,6 +23,63 @@ The framework automatically:
 3. Scans for methods decorated with `[NatsConsumer]` attributes
 4. Subscribes to the corresponding NATS subjects
 
+### Registering Controllers by Interface
+
+Controllers can be automatically registered with their interface in the dependency injection container. This allows you to inject the interface instead of the concrete implementation, which improves testability and follows dependency inversion principles.
+
+**Convention:**
+
+- The interface must be named `I{ControllerName}` (e.g., `IOrderController` for `OrderController`)
+- The interface must be in the same namespace as the controller class
+- If such an interface exists, the controller will be registered as `AddSingleton<Interface, ConcreteType>()`
+- If no matching interface is found, the concrete type will be registered directly
+
+**Example:**
+
+```cs
+namespace your.namespace.controllers;
+
+public interface IOrderController
+{
+    Task<NatsAck> ProcessOrder(NatsMsg<Order> msg, CancellationToken ct = default);
+}
+
+public class OrderController : IOrderController
+{
+    private readonly IOrderService _orderService;
+
+    public OrderController(IOrderService orderService)
+    {
+        _orderService = orderService;
+    }
+
+    [NatsConsumer(_subject: "orders.process")]
+    public async Task<NatsAck> ProcessOrder(NatsMsg<Order> msg, CancellationToken ct = default)
+    {
+        var result = await _orderService.ProcessOrderAsync(msg.Data, ct);
+        return new NatsAck(true, result);
+    }
+}
+```
+
+In this example, `OrderController` will be automatically registered as `AddSingleton<IOrderController, OrderController>()`. You can then inject `IOrderController` in your tests or other components:
+
+```cs
+public class OrderControllerTests
+{
+    private readonly IOrderController _controller;
+
+    public OrderControllerTests(IOrderController controller)
+    {
+        _controller = controller;
+    }
+
+    // Test methods here
+}
+```
+
+**Note:** If you don't want to use interface-based registration, simply omit the interface. The controller will still be registered, but as the concrete type only.
+
 ## Controller Structure
 
 Here's a typical controller structure:

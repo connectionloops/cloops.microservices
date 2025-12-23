@@ -73,6 +73,58 @@ public class HealthStatus
 
 This service would be called by a controller that handles the NATS message. See [Controllers](./controllers.md) for how to handle NATS messages.
 
+#### Registering Services by Interface
+
+Traditional services can be automatically registered with their interface in the dependency injection container. This allows you to inject the interface instead of the concrete implementation, which improves testability and follows dependency inversion principles.
+
+**Convention:**
+
+- The interface must be named `I{ServiceName}` (e.g., `IMyService` for `MyService`)
+- The interface must be in the same namespace as the service class
+- If such an interface exists, the service will be registered as `AddSingleton<Interface, ConcreteType>()`
+- If no matching interface is found, the concrete type will be registered directly
+
+**Example:**
+
+```cs
+namespace gk.weather.services;
+
+public interface IMyService
+{
+    public string Hello();
+}
+
+public class AutoRegisteredService : IMyService
+{
+    public AutoRegisteredService()
+    {
+    }
+
+    public string Hello()
+    {
+        return "how are you";
+    }
+}
+```
+
+In this example, `AutoRegisteredService` will be automatically registered as `AddSingleton<IMyService, AutoRegisteredService>()` by cloops.microservices. You can then inject `IMyService` in your controllers or other services:
+
+```cs
+public class MyController
+{
+    private readonly IMyService _myService;
+
+    public MyController(IMyService myService)
+    {
+        _myService = myService;
+    }
+
+    // Use _myService here
+}
+```
+
+**Note:** If you don't want to use interface-based registration, simply omit the interface. The service will still be registered, but as the concrete type only.
+
 ### Background Services
 
 These are the services that are continuously doing something in the background (typically on a schedule).

@@ -134,8 +134,18 @@ public class App
 
         foreach (var controllerType in controllerTypes)
         {
-            builder.Services.AddSingleton(controllerType);
-            Console.WriteLine($"Registered controller: {controllerType.Name}");
+            var interfaceType = FindInterface(controllerType);
+            if (interfaceType != null)
+            {
+                builder.Services.AddSingleton(interfaceType, controllerType);
+                Console.WriteLine($"Registered controller: {interfaceType.Name} -> {controllerType.Name}");
+            }
+            else
+            {
+                // Fallback: register concrete type if no interface found
+                builder.Services.AddSingleton(controllerType);
+                Console.WriteLine($"Registered controller (no interface): {controllerType.Name}");
+            }
         }
     }
 
@@ -164,9 +174,46 @@ public class App
 
         foreach (var serviceType in serviceTypes)
         {
-            builder.Services.AddSingleton(serviceType);
-            Console.WriteLine($"Registered service: {serviceType.Name}");
+            var interfaceType = FindInterface(serviceType);
+            if (interfaceType != null)
+            {
+                builder.Services.AddSingleton(interfaceType, serviceType);
+                Console.WriteLine($"Registered service: {interfaceType.Name} -> {serviceType.Name}");
+            }
+            else
+            {
+                // Fallback: register concrete type if no interface found
+                builder.Services.AddSingleton(serviceType);
+                Console.WriteLine($"Registered service (no interface): {serviceType.Name}");
+            }
         }
+    }
+
+    /// <summary>
+    /// Finds the interface for a given type following the convention: I{TypeName} in the same namespace.
+    /// </summary>
+    /// <param name="type">The concrete type to find an interface for</param>
+    /// <returns>The interface type if found, null otherwise</returns>
+    private Type? FindInterface(Type type)
+    {
+        // Convention: Interface name is I{TypeName} in the same namespace
+        var expectedInterfaceName = $"I{type.Name}";
+        var typeNamespace = type.Namespace;
+
+        if (string.IsNullOrEmpty(typeNamespace))
+        {
+            return null;
+        }
+
+        // Look for the interface in the same assembly and namespace
+        var targetAssembly = ResolveTargetAssembly();
+        var interfaceType = targetAssembly
+            .GetTypes()
+            .FirstOrDefault(t => t.IsInterface &&
+                                 t.Name == expectedInterfaceName &&
+                                 t.Namespace == typeNamespace);
+
+        return interfaceType;
     }
 
     private void RegisterBackgroundServices()
@@ -237,9 +284,21 @@ public class App
         {
             try
             {
+                // Always register HttpClient for the concrete type (required for HTTP services)
                 var typedAddHttpClient = addHttpClientGenericMethod.MakeGenericMethod(httpServiceType);
                 typedAddHttpClient.Invoke(null, [builder.Services]);
-                Console.WriteLine($"Registered HTTP service: {httpServiceType.Name}");
+
+                // Also register with custom interface if it exists
+                var interfaceType = FindInterface(httpServiceType);
+                if (interfaceType != null)
+                {
+                    builder.Services.AddSingleton(interfaceType, httpServiceType);
+                    Console.WriteLine($"Registered HTTP service: {interfaceType.Name} -> {httpServiceType.Name}");
+                }
+                else
+                {
+                    Console.WriteLine($"Registered HTTP service: {httpServiceType.Name}");
+                }
             }
             catch (Exception ex)
             {
