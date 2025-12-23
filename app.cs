@@ -101,9 +101,6 @@ public class App
         RegisterServices();
         RegisterBackgroundServices();
         RegisterHttpServices();
-
-        // build it
-        host = builder.Build();
     }
 
     /// <summary>
@@ -113,6 +110,8 @@ public class App
     /// <returns>A task that represents the asynchronous operation</returns>
     public Task RunAsync()
     {
+        // build it
+        host = builder.Build();
         return host.RunAsync();
     }
 
