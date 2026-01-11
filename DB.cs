@@ -8,6 +8,45 @@ using Microsoft.Data.SqlClient;
 namespace CLOOPS.microservices;
 
 /// <summary>
+/// Defines the functionality required to execute SQL commands within a transaction.
+/// </summary>
+public interface IDBTransaction : IAsyncDisposable
+{
+    /// <summary>
+    /// Executes a SQL command (INSERT, UPDATE, DELETE) within the transaction and returns the number of affected rows.
+    /// </summary>
+    /// <param name="query">SQL command to execute.</param>
+    /// <param name="parameters">Optional parameters to bind to the SQL command.</param>
+    /// <param name="timeout">Command timeout in seconds.</param>
+    /// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
+    /// <returns>Number of rows affected by the command.</returns>
+    Task<int> ExecuteNonQueryAsync(string query, SqlParameter[]? parameters = null, int timeout = 30, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Executes a SQL query asynchronously within the transaction and streams the result set as strongly typed objects.
+    /// </summary>
+    /// <typeparam name="T">The result type that each row is mapped to.</typeparam>
+    /// <param name="query">The SQL query to execute.</param>
+    /// <param name="parameters">Optional parameters to bind to the SQL command.</param>
+    /// <param name="timeout">Command timeout in seconds.</param>
+    /// <param name="cancellationToken">Token used to cancel the operation.</param>
+    /// <returns>A streamed sequence of results of type <typeparamref name="T"/>.</returns>
+    IAsyncEnumerable<T> ExecuteReadAsync<T>(string query, SqlParameter[]? parameters = null, int timeout = 30, CancellationToken cancellationToken = default) where T : class;
+
+    /// <summary>
+    /// Commits the transaction asynchronously.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
+    Task CommitAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Rolls back the transaction asynchronously.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
+    Task RollbackAsync(CancellationToken cancellationToken = default);
+}
+
+/// <summary>
 /// Defines the functionality required to execute SQL commands against the application's database.
 /// </summary>
 public interface IDB
@@ -16,6 +55,7 @@ public interface IDB
     /// Gets the connection string used for SQL connections.
     /// </summary>
     public string cnstr { get; }
+
     /// <summary>
     /// Executes a SQL query asynchronously and streams the result set as strongly typed objects.
     /// </summary>
@@ -35,6 +75,48 @@ public interface IDB
     ) where T : class;
 
     /// <summary>
+    /// Executes a SQL command (INSERT, UPDATE, DELETE) asynchronously and returns the number of affected rows.
+    /// </summary>
+    /// <param name="query">SQL command to execute.</param>
+    /// <param name="parameters">Optional parameters to bind to the SQL command.</param>
+    /// <param name="infoMessageCallback">Callback used to surface SQL Server informational messages.</param>
+    /// <param name="timeout">Command timeout in seconds.</param>
+    /// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
+    /// <returns>Number of rows affected by the command.</returns>
+    Task<int> ExecuteNonQueryAsync(
+        string query,
+        SqlParameter[]? parameters = null,
+        Action<string>? infoMessageCallback = null,
+        int timeout = 30,
+        CancellationToken cancellationToken = default
+    );
+
+    /// <summary>
+    /// Executes a SQL query asynchronously and returns the first column of the first row.
+    /// </summary>
+    /// <typeparam name="T">Expected return type.</typeparam>
+    /// <param name="query">SQL query to execute.</param>
+    /// <param name="parameters">Optional parameters to bind to the SQL command.</param>
+    /// <param name="infoMessageCallback">Callback used to surface SQL Server informational messages.</param>
+    /// <param name="timeout">Command timeout in seconds.</param>
+    /// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
+    /// <returns>Scalar value of type T, or default(T) if no result.</returns>
+    Task<T?> ExecuteScalarAsync<T>(
+        string query,
+        SqlParameter[]? parameters = null,
+        Action<string>? infoMessageCallback = null,
+        int timeout = 30,
+        CancellationToken cancellationToken = default
+    );
+
+    /// <summary>
+    /// Begins a new database transaction asynchronously.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
+    /// <returns>A database transaction object that can be used to execute commands atomically.</returns>
+    Task<IDBTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Executes a SQL script that contains <c>GO</c> batch separators.
     /// </summary>
     /// <param name="sqlScript">The full SQL script to execute.</param>
@@ -43,6 +125,97 @@ public interface IDB
     /// <param name="cancellationToken">Token used to cancel the operation.</param>
     /// <returns>A list of string results produced by the executed batches.</returns>
     Task<List<string>> ExecuteSQLScriptWithGo(string sqlScript, Action<string>? infoMessageCallback = null, int timeout = 600, CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// Provides a concrete implementation of a database transaction for executing SQL commands atomically.
+/// </summary>
+public class DBTransaction : IDBTransaction
+{
+    private readonly SqlConnection _connection;
+    private SqlTransaction? _transaction;
+    private bool _disposed = false;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="DBTransaction"/> class.
+    /// </summary>
+    /// <param name="connection">The SQL connection to use for the transaction.</param>
+    /// <param name="transaction">The SQL transaction object.</param>
+    internal DBTransaction(SqlConnection connection, SqlTransaction transaction)
+    {
+        _connection = connection;
+        _transaction = transaction;
+    }
+
+    /// <inheritdoc/>
+    public async Task<int> ExecuteNonQueryAsync(string query, SqlParameter[]? parameters = null, int timeout = 30, CancellationToken cancellationToken = default)
+    {
+        if (_disposed || _transaction == null)
+            throw new ObjectDisposedException(nameof(DBTransaction));
+
+        return await DB.ExecuteNonQueryInternalAsync(
+            query,
+            parameters,
+            timeout,
+            _connection,
+            _transaction,
+            cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async IAsyncEnumerable<T> ExecuteReadAsync<T>(string query, SqlParameter[]? parameters = null, int timeout = 30, [EnumeratorCancellation] CancellationToken cancellationToken = default) where T : class
+    {
+        if (_disposed || _transaction == null)
+            throw new ObjectDisposedException(nameof(DBTransaction));
+        await foreach (var item in DB.ExecuteReadInternalAsync<T>(
+            query,
+            parameters,
+            timeout,
+            _connection,
+            _transaction,
+            cancellationToken))
+        {
+            yield return item;
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task CommitAsync(CancellationToken cancellationToken = default)
+    {
+        if (_disposed || _transaction == null)
+            throw new ObjectDisposedException(nameof(DBTransaction));
+
+        await _transaction.CommitAsync(cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task RollbackAsync(CancellationToken cancellationToken = default)
+    {
+        if (_disposed || _transaction == null)
+            throw new ObjectDisposedException(nameof(DBTransaction));
+
+        await _transaction.RollbackAsync(cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed)
+            return;
+
+        if (_transaction != null)
+        {
+            await _transaction.DisposeAsync();
+            _transaction = null;
+        }
+        if (_connection != null)
+        {
+            await _connection.CloseAsync();
+            await _connection.DisposeAsync();
+        }
+        _disposed = true;
+    }
+
 }
 
 /// <summary>
@@ -88,65 +261,175 @@ public class DB : IDB
         [EnumeratorCancellation] CancellationToken cancellationToken = default
     ) where T : class
     {
-        using (var connection = new SqlConnection(_cnstr))
+        using var connection = new SqlConnection(_cnstr);
+        connection.InfoMessage += (sender, e) =>
         {
-            // Capture messages from the database server
-            connection.InfoMessage += (sender, e) =>
-            {
-                if (infoMessageCallback != null)
-                {
-                    infoMessageCallback(e.Message);
-                }
-            };
-            await connection.OpenAsync(cancellationToken);
-            var command = new SqlCommand(query, connection);
-            command.CommandTimeout = timeout;
-            // Add parameters if any
-            if (parameters != null)
-            {
-                command.Parameters.AddRange(parameters);
-            }
-            using (var reader = await command.ExecuteReaderAsync(cancellationToken))
-            {
-                // caches
-                var type = typeof(T);
-                Dictionary<string, PropertyInfo> typePropertyCache = getPropertiesCache(type);
-                var colSchema = await reader.GetColumnSchemaAsync(cancellationToken);
+            infoMessageCallback?.Invoke(e.Message);
+        };
+        await connection.OpenAsync(cancellationToken);
 
-                // create items
-                while (await reader.ReadAsync(cancellationToken))
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    var item = CreateInstance<T>(typeof(T));
-                    foreach (var column in colSchema)
-                    {
-
-                        if (column.ColumnOrdinal is not null)
-                        {
-                            var columnValue = reader.GetValue(column.ColumnOrdinal.Value);
-                            if (typePropertyCache.TryGetValue(column.ColumnName, out var cachedPropertyInfo))
-                            {
-                                AddValueToObject<T>(item, cachedPropertyInfo, columnValue);
-                            }
-                            else if (item is JsonObject jsonObject)
-                            {
-                                AddValueToJsonObject(jsonObject, column, columnValue);
-                            }
-                            else if (type == typeof(string))
-                            {
-                                item = (T)(object)(columnValue.ToString() ?? string.Empty);
-                            }
-                            else if (AtomicTypes.Contains(type))
-                            {
-                                item = (T)columnValue;
-                            }
-                        }
-                    }
-                    yield return item;
-                }
-
-            }
+        await foreach (var item in ExecuteReadInternalAsync<T>(
+            query,
+            parameters,
+            timeout,
+            connection,
+            transaction: null,
+            cancellationToken))
+        {
+            yield return item;
         }
+    }
+
+    /// <inheritdoc/>
+    public async Task<int> ExecuteNonQueryAsync(
+        string query,
+        SqlParameter[]? parameters = null,
+        Action<string>? infoMessageCallback = null,
+        int timeout = 30,
+        CancellationToken cancellationToken = default
+    )
+    {
+        using var connection = new SqlConnection(_cnstr);
+        connection.InfoMessage += (sender, e) =>
+        {
+            infoMessageCallback?.Invoke(e.Message);
+        };
+        await connection.OpenAsync(cancellationToken);
+        return await ExecuteNonQueryInternalAsync(query, parameters, timeout, connection, transaction: null, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<T?> ExecuteScalarAsync<T>(
+        string query,
+        SqlParameter[]? parameters = null,
+        Action<string>? infoMessageCallback = null,
+        int timeout = 30,
+        CancellationToken cancellationToken = default
+    )
+    {
+        using var connection = new SqlConnection(_cnstr);
+        connection.InfoMessage += (sender, e) =>
+        {
+            infoMessageCallback?.Invoke(e.Message);
+        };
+        await connection.OpenAsync(cancellationToken);
+        return await ExecuteScalarInternalAsync<T>(query, parameters, timeout, connection, transaction: null, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<IDBTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default)
+    {
+        var connection = new SqlConnection(_cnstr);
+        await connection.OpenAsync(cancellationToken);
+        var transaction = (SqlTransaction)await connection.BeginTransactionAsync(cancellationToken);
+        return new DBTransaction(connection, transaction);
+    }
+
+    internal static async IAsyncEnumerable<T> ExecuteReadInternalAsync<T>(
+        string query,
+        SqlParameter[]? parameters,
+        int timeout,
+        SqlConnection connection,
+        SqlTransaction? transaction,
+        [EnumeratorCancellation] CancellationToken cancellationToken
+    ) where T : class
+    {
+        var command = transaction != null
+            ? new SqlCommand(query, connection, transaction)
+            : new SqlCommand(query, connection);
+
+        command.CommandTimeout = timeout;
+        if (parameters != null)
+        {
+            command.Parameters.AddRange(parameters);
+        }
+
+        using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        var type = typeof(T);
+        Dictionary<string, PropertyInfo> typePropertyCache = GetPropertiesCache(type);
+        var colSchema = await reader.GetColumnSchemaAsync(cancellationToken);
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var item = CreateInstance<T>(type);
+            foreach (var column in colSchema)
+            {
+                if (column.ColumnOrdinal is null)
+                {
+                    continue;
+                }
+
+                var columnValue = reader.GetValue(column.ColumnOrdinal.Value);
+                if (typePropertyCache.TryGetValue(column.ColumnName, out var cachedPropertyInfo))
+                {
+                    AddValueToObject(item, cachedPropertyInfo, columnValue);
+                }
+                else if (item is JsonObject jsonObject)
+                {
+                    AddValueToJsonObject(jsonObject, column, columnValue);
+                }
+                else if (type == typeof(string))
+                {
+                    item = (T)(object)(columnValue.ToString() ?? string.Empty);
+                }
+                else if (AtomicTypes.Contains(type))
+                {
+                    item = (T)columnValue;
+                }
+            }
+            yield return item;
+        }
+    }
+
+    internal static async Task<int> ExecuteNonQueryInternalAsync(
+        string query,
+        SqlParameter[]? parameters,
+        int timeout,
+        SqlConnection connection,
+        SqlTransaction? transaction,
+        CancellationToken cancellationToken
+    )
+    {
+        var command = transaction != null
+            ? new SqlCommand(query, connection, transaction)
+            : new SqlCommand(query, connection);
+
+        command.CommandTimeout = timeout;
+        if (parameters != null)
+        {
+            command.Parameters.AddRange(parameters);
+        }
+
+        return await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    internal static async Task<T?> ExecuteScalarInternalAsync<T>(
+        string query,
+        SqlParameter[]? parameters,
+        int timeout,
+        SqlConnection connection,
+        SqlTransaction? transaction,
+        CancellationToken cancellationToken
+    )
+    {
+        var command = transaction != null
+            ? new SqlCommand(query, connection, transaction)
+            : new SqlCommand(query, connection);
+
+        command.CommandTimeout = timeout;
+        if (parameters != null)
+        {
+            command.Parameters.AddRange(parameters);
+        }
+
+        var result = await command.ExecuteScalarAsync(cancellationToken);
+        if (result == null || result == DBNull.Value)
+        {
+            return default;
+        }
+
+        return (T)Convert.ChangeType(result, typeof(T));
     }
 
     /// <summary>
@@ -192,7 +475,7 @@ public class DB : IDB
     }
 
     #region utilityFunctions
-    private Dictionary<string, PropertyInfo> getPropertiesCache(Type type)
+    internal static Dictionary<string, PropertyInfo> GetPropertiesCache(Type type)
     {
         Dictionary<string, PropertyInfo> typePropertyCache = new Dictionary<string, PropertyInfo>(StringComparer.OrdinalIgnoreCase);
         if (type == typeof(JsonObject))
@@ -206,7 +489,7 @@ public class DB : IDB
         return typePropertyCache;
     }
 
-    private T CreateInstance<T>(Type type) where T : class
+    internal static T CreateInstance<T>(Type type) where T : class
     {
         if (type == typeof(JsonObject))
         {
@@ -226,7 +509,7 @@ public class DB : IDB
         }
     }
 
-    private void AddValueToJsonObject(JsonObject item, DbColumn column, object columnValue)
+    internal static void AddValueToJsonObject(JsonObject item, DbColumn column, object columnValue)
     {
         if (column.DataType == typeof(string))
         {
@@ -248,7 +531,7 @@ public class DB : IDB
         item.Add(new KeyValuePair<string, JsonNode?>(column.ColumnName, JsonValue.Create(columnValue)));
     }
 
-    private void AddValueToObject<T>(T item, PropertyInfo pinfo, object columnValue)
+    internal static void AddValueToObject<T>(T item, PropertyInfo pinfo, object columnValue)
     {
         if (AtomicTypes.Contains(pinfo.PropertyType) || pinfo.PropertyType.IsEnum)
         {
@@ -270,7 +553,7 @@ public class DB : IDB
         }
     }
 
-    private static readonly HashSet<Type> AtomicTypes = new HashSet<Type>
+    internal static readonly HashSet<Type> AtomicTypes = new HashSet<Type>
     {
         typeof(string),
         typeof(int),
