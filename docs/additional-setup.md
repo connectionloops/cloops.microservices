@@ -17,12 +17,14 @@ Before your microservice can run in a new environment, the database schema and a
 - **Schema migrations**: Creating tables, indexes, constraints, and other database objects
 - **Seed data**: Initial reference data, configuration values, or test data
 - **Database credentials**: Ensuring proper database connection strings are configured
+- **Ledger infrastructure**: Creating and operating TigerBeetle clusters when the service uses ledger/accounting workflows
 
 ### Common Approaches
 
 - **CI/CD pipelines**: Automated migrations run as part of deployment pipelines
 - **Database migration tools**: Using tools like Entity Framework Migrations, FluentMigrator, or database-specific migration scripts
 - **Infrastructure as Code**: Managing databases alongside application deployments using tools like Terraform, Pulumi, or cloud-native solutions
+- **TigerBeetle deployment automation**: Managing TigerBeetle replicas, cluster IDs, storage volumes, and service discovery outside the application code
 
 > 💡 **Tip**: Consider versioning your database schema alongside your application code and running migrations as part of your deployment process.
 
@@ -86,7 +88,8 @@ Generally, these setup tasks are:
 
 - **[Application Configuration](./config.md)**: How to configure your microservice
 - **[NATS Consumers](./consumer.md)**: How to define consumers in your application code
-- **[Database Operations](./db.md)**: How to use databases within your microservice
+- **[SQL Database Operations](./db.md)**: How to use SQL Server within your microservice
+- **[TigerBeetle](./tigerbeetle.md)**: How to use TigerBeetle for ledger and accounting workloads
 
 ---
 

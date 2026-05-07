@@ -51,4 +51,21 @@ public class BaseAppSettings
     /// Gets a value indicating whether NATS consumers should run.
     /// </summary>
     public bool EnableNatsConsumers { get; init; } = Convert.ToBoolean(Environment.GetEnvironmentVariable("ENABLE_NATS_CONSUMERS") ?? "False");
+
+    /// <summary>
+    /// Gets the comma-separated TigerBeetle address list. e.g. 127.0.0.1:3000,127.0.0.1:3001
+    /// </summary>
+    public String TigerBeetleAddresses { get; init; } = Environment.GetEnvironmentVariable("TB_ADDRESSES") ?? "";
+
+    /// <summary>
+    /// Gets the TigerBeetle cluster ID. Defaults to 0 if TB_CLUSTER_ID is missing or invalid.
+    /// </summary>
+    public ulong TigerBeetleClusterId { get; init; } = ParseTigerBeetleClusterId();
+
+    private static ulong ParseTigerBeetleClusterId()
+    {
+        return ulong.TryParse(Environment.GetEnvironmentVariable("TB_CLUSTER_ID"), out var clusterId)
+            ? clusterId
+            : 0;
+    }
 }

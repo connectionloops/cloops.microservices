@@ -33,7 +33,7 @@ public class App
     /// <summary>
     /// The host application
     /// </summary>
-    public IHost host;
+    public IHost? host;
 
     /// <summary>
     /// Creates the DI pipeline and starts the application.
@@ -59,6 +59,8 @@ public class App
 
             App:                     {appSettings.AssemblyName}
             NATS URL:                {appSettings.NatsURL}
+            TB Addresses:            {appSettings.TigerBeetleAddresses}
+            TB Cluster ID:           {appSettings.TigerBeetleClusterId}
             OTEL Endpoint:           {appSettings.OtelEndpoint}
             Cluster:                 {appSettings.Cluster}
             Enable NATS Consumers:   {appSettings.EnableNatsConsumers}
@@ -74,6 +76,8 @@ public class App
 
         ConfigureLogger();
         Console.WriteLine("Configured Serilog");
+
+        ConfigureTigerBeetle(appSettings);
 
         if (!string.IsNullOrEmpty(appSettings.ConnectionString))
         {
@@ -435,5 +439,31 @@ public class App
                     });
                 }
             });
+    }
+
+    /// <summary>
+    /// Adds TigerBeetle Client to DI
+    /// </summary>
+    private void ConfigureTigerBeetle(BaseAppSettings appSettings)
+    {
+        if (String.IsNullOrWhiteSpace(appSettings.TigerBeetleAddresses))
+        {
+            Console.WriteLine("No TigerBeetle Database Configured");
+            return;
+        }
+
+        var addresses = appSettings.TigerBeetleAddresses
+            .Split(",", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+        if (addresses.Length == 0)
+        {
+            Console.WriteLine("No valid TigerBeetle addresses configured");
+            return;
+        }
+
+        builder.Services.AddSingleton(_ =>
+            new TigerBeetle.Client(appSettings.TigerBeetleClusterId, addresses));
+
+        Console.WriteLine("Configured TigerBeetle Client");
     }
 }

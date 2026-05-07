@@ -11,7 +11,7 @@ This documentation is designed to guide you through building microservices with 
 - 🚀 **Getting Started**: Installation and setup instructions
 - 🔧 **Core Concepts**: Dependency injection, configuration, controller and service registration
 - 📡 **NATS Integration**: Building controllers with consumers and implementing request-reply or publish-subscribe patterns
-- 💾 **Data & Communication**: Database operations and inter-service communication
+- 💾 **Data & Communication**: SQL database operations, TigerBeetle ledger operations, and inter-service communication
 - ⚡ **Advanced Features**: Distributed locking, observability, and more
 
 ### Prerequisites
@@ -34,17 +34,18 @@ Before diving in, it's recommended that you:
 - **6. 🛠️ [Utility Functions](./util.md)**
 - **7. 🎮 [Controllers](./controllers.md)**
 - **8. 🔧 [Services](./services.md)**
-- **9. 💾 [Making Database Calls](./db.md)**
-- **10. 🌐 [Invoking other services](./api.calls.md)**
-- **11. 🧪 [Manually Testing Microservices on local](./testing.md)**
-- **12. 📊 Observability**
-  - **12.1. 📝 [Logging](./logging.md)**
-  - **12.2. 📈 [Metrics](./metrics.md)**
-  - **12.3. 🔍 Tracing (WIP)**
-- **13. 🚩 Feature Flagging (WIP)**
-- **14. 🗄️ NimbusDb (WIP)**
-- **15. ⏰ Background Jobs(WIP)**
-- **16. 🔒 [Distributed Locks](./distributed-locks.md)**
-- **17. 🔐 Decentralized JWT Auth for UI**
-- **18. 💨 Caching (WIP)**
-- **19. 🧭 [Additional Setup](./additional-setup.md)**
+- **9. 💾 [Making SQL Database Calls](./db.md)**
+- **10. 🐯 [TigerBeetle Ledger Database](./tigerbeetle.md)**
+- **11. 🌐 [Invoking other services](./api.calls.md)**
+- **12. 🧪 [Manually Testing Microservices on local](./testing.md)**
+- **13. 📊 Observability**
+  - **13.1. 📝 [Logging](./logging.md)**
+  - **13.2. 📈 [Metrics](./metrics.md)**
+  - **13.3. 🔍 Tracing (WIP)**
+- **14. 🚩 Feature Flagging (WIP)**
+- **15. 🗄️ NimbusDb (WIP)**
+- **16. ⏰ Background Jobs(WIP)**
+- **17. 🔒 [Distributed Locks](./distributed-locks.md)**
+- **18. 🔐 Decentralized JWT Auth for UI**
+- **19. 💨 Caching (WIP)**
+- **20. 🧭 [Additional Setup](./additional-setup.md)**

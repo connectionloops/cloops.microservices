@@ -27,6 +27,8 @@ The `cloops.microservices` SDK provides a simple and flexible configuration syst
 - `Cluster` - Target cluster name (default: `ccnp`)
 - `ConnectionString` - SQL database connection string
 - `EnableNatsConsumers` - Enable/disable NATS consumers (default: `False`)
+- `TigerBeetleAddresses` - Comma-separated TigerBeetle replica addresses
+- `TigerBeetleClusterId` - TigerBeetle cluster ID (default: `0`)
 
 All properties use `init` accessors and read from environment variables with sensible defaults.
 
@@ -79,6 +81,8 @@ Configuration values are loaded from environment variables. Set them before star
 | `CLUSTER`                      | Microservice   | Target cluster where the service runs                                                                                                                                                                                                                                                                                                                                | `ccnp`                           | No       |
 | `CNSTR`                        | Microservice   | SQL database connection string                                                                                                                                                                                                                                                                                                                                       | None                             | No       |
 | `ENABLE_NATS_CONSUMERS`        | Microservice   | Controls whether NATS consumers start with the service                                                                                                                                                                                                                                                                                                               | `False`                          | No       |
+| `TB_ADDRESSES`                 | TigerBeetle    | Comma-separated TigerBeetle replica addresses. When provided, the SDK registers `TigerBeetle.Client` in dependency injection                                                                                                                                                                                                                                         | None                             | No       |
+| `TB_CLUSTER_ID`                | TigerBeetle    | TigerBeetle cluster ID used when creating the client                                                                                                                                                                                                                                                                                                                 | `0`                              | No       |
 
 ### Setting Environment Variables
 
@@ -89,9 +93,17 @@ export DEBUG=True
 export NATS_URL=tls://nats.example.com:4222
 export NATS_CREDS="your-credentials-here"
 export CNSTR="Server=localhost;Database=mydb;..."
+export TB_ADDRESSES="127.0.0.1:3000"
+export TB_CLUSTER_ID=0
 export CLUSTER=production
 export ENABLE_NATS_CONSUMERS=True
 ```
+
+### TigerBeetle Variables
+
+TigerBeetle is optional. If `TB_ADDRESSES` is empty, no TigerBeetle client is registered. If it is set, `cloops.microservices` parses the comma-separated addresses and registers a singleton `TigerBeetle.Client` using `TB_CLUSTER_ID`.
+
+Use TigerBeetle for ledger and accounting workloads such as account balances, credits and debits, money movement, transfers, pending transfers, and idempotent financial transaction processing. See [TigerBeetle](./tigerbeetle.md) for usage examples and links to the upstream .NET client documentation.
 
 ### NATS Minting Service Variables
 

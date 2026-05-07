@@ -40,6 +40,7 @@
     <PackageReference Include="Serilog.Formatting.Compact" Version="3.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
     <PackageReference Include="System.Linq.Async" Version="7.0.1" />
+    <PackageReference Include="tigerbeetle" Version="0.17.3" />
   </ItemGroup>
 
   <!-- static files -->
