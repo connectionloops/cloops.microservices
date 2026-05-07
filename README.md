@@ -2,6 +2,8 @@
 
 An opinionated library to build highly available, lean and scalable cloud native microservices using [NATS](https://nats.io/) as the primary communication layer.
 
+> versions 1.1.14 and above target .net 10. If you need .net 9, please use 1.1.13.
+
 ## 🎯 Overview
 
 Minimize undifferentiated work and get all the bells and whistles for a lean, high-performance, and scalable microservices setup. Check out the [docs](/docs/README.md) for detailed guides.
