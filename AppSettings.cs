@@ -53,6 +53,21 @@ public class BaseAppSettings
     public bool EnableNatsConsumers { get; init; } = Convert.ToBoolean(Environment.GetEnvironmentVariable("ENABLE_NATS_CONSUMERS") ?? "False");
 
     /// <summary>
+    /// Gets a value indicating whether REST endpoints should run.
+    /// </summary>
+    public bool EnableRestEndpoints { get; init; } = Convert.ToBoolean(Environment.GetEnvironmentVariable("ENABLE_REST_ENDPOINTS") ?? "True");
+
+    /// <summary>
+    /// Gets the port used by the lightweight REST endpoint server.
+    /// </summary>
+    public int RestPort { get; init; } = int.TryParse(Environment.GetEnvironmentVariable("REST_PORT"), out var restPort) ? restPort : 8080;
+
+    /// <summary>
+    /// Gets the shared secret required by REST endpoints marked as auth-required.
+    /// </summary>
+    public string RestApiSecret { get; init; } = Environment.GetEnvironmentVariable("REST_API_SECRET") ?? "";
+
+    /// <summary>
     /// Gets the comma-separated TigerBeetle address list. e.g. 127.0.0.1:3000,127.0.0.1:3001
     /// </summary>
     public String TigerBeetleAddresses { get; init; } = Environment.GetEnvironmentVariable("TB_ADDRESSES") ?? "";

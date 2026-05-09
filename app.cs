@@ -1,8 +1,9 @@
 using System.Linq;
-using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Reflection;
 using CLOOPS.NATS;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -19,7 +20,7 @@ namespace CLOOPS.microservices;
 /// <summary>
 /// Coordinates dependency injection setup and application startup.
 /// </summary>
-public class App
+public partial class App
 {
     /// <summary>
     /// The application settings
@@ -28,22 +29,30 @@ public class App
     /// <summary>
     /// The host application builder
     /// </summary>
-    public HostApplicationBuilder builder;
+    public WebApplicationBuilder builder;
 
     /// <summary>
     /// The host application
     /// </summary>
-    public IHost? host;
+    public WebApplication? host;
+
+    /// <summary>
+    /// Stores all the types in the assembly for faster startup.
+    /// </summary>
+    private Type[]? cachedTargetTypes;
 
     /// <summary>
     /// Creates the DI pipeline and starts the application.
     /// </summary>
-    /// <param name="introMessageProvider">Optional function that takes BaseAppSettings and returns a custom intro message. If not provided, a default message will be used.</param>
-    public App(Func<BaseAppSettings, string>? introMessageProvider = null)
+    /// <param name="introMessageProvider">Optional function that takes BaseAppSettings and WebApplicationBuilder and returns a custom intro message. If not provided, a default message will be used.</param>
+    public App(Func<BaseAppSettings, WebApplicationBuilder, string>? introMessageProvider = null)
     {
         appSettings = new BaseAppSettings();
+        ConfigureThreadPool();
+        builder = WebApplication.CreateSlimBuilder();
+        ConfigureRestListener();
         string introMessage = introMessageProvider != null
-            ? introMessageProvider(appSettings)
+            ? introMessageProvider(appSettings, builder)
             : $@"
              _____                            _   _               _                           
             / ____|                          | | (_)             | |                          
@@ -58,6 +67,7 @@ public class App
             ╩ ╩┴└─┘┴└─└─┘└─┘└─┘┴└─ └┘ ┴└─┘└─┘└─┘
 
             App:                     {appSettings.AssemblyName}
+            Env:                     {builder.Environment.EnvironmentName}
             NATS URL:                {appSettings.NatsURL}
             TB Addresses:            {appSettings.TigerBeetleAddresses}
             TB Cluster ID:           {appSettings.TigerBeetleClusterId}
@@ -67,8 +77,6 @@ public class App
         ";
         Console.WriteLine(introMessage);
         Console.WriteLine("Boostrapping app...");
-        ConfigureThreadPool();
-        builder = Host.CreateApplicationBuilder();
 
         // add singleton services
         builder.Services.AddSingleton(appSettings);
@@ -99,10 +107,10 @@ public class App
         }
 
         ConfigureOTEL();
-        Console.WriteLine("Configured OpenTelemetry");
 
         RegisterControllers();
         RegisterServices();
+        RegisterRestEndpoints();
         RegisterBackgroundServices();
         RegisterHttpServices();
     }
@@ -116,23 +124,19 @@ public class App
     {
         // build it
         host = builder.Build();
+        MapRestEndpoints(host);
         return host.RunAsync();
     }
 
     private void RegisterControllers()
     {
-        var targetAssembly = ResolveTargetAssembly();
-
-        var controllerTypes = targetAssembly
-            .GetTypes()
-            .Where(t => t.IsClass && !t.IsAbstract && !t.IsNested)
+        var controllerTypes = GetTargetTypes()
             .Where(t =>
             {
                 var ns = t.Namespace;
                 return !string.IsNullOrEmpty(ns) &&
                        ns.EndsWith("Controllers", StringComparison.OrdinalIgnoreCase);
             })
-            .Where(t => !t.IsDefined(typeof(CompilerGeneratedAttribute), inherit: false))
             .ToArray();
 
         foreach (var controllerType in controllerTypes)
@@ -154,11 +158,7 @@ public class App
 
     private void RegisterServices()
     {
-        var targetAssembly = ResolveTargetAssembly();
-
-        var serviceTypes = targetAssembly
-            .GetTypes()
-            .Where(t => t.IsClass && !t.IsAbstract && !t.IsNested)
+        var serviceTypes = GetTargetTypes()
             .Where(t =>
             {
                 var ns = t.Namespace;
@@ -172,7 +172,6 @@ public class App
                 var endsWithHttp = ns.EndsWith("Services.Http", StringComparison.OrdinalIgnoreCase);
                 return endsWithServices && !endsWithBackground && !endsWithHttp;
             })
-            .Where(t => !t.IsDefined(typeof(CompilerGeneratedAttribute), inherit: false))
             .ToArray();
 
         foreach (var serviceType in serviceTypes)
@@ -218,16 +217,7 @@ public class App
 
     private void RegisterBackgroundServices()
     {
-        var targetAssembly = ResolveTargetAssembly();
-        if (targetAssembly == null)
-        {
-            Console.WriteLine("No assembly found for background service registration.");
-            return;
-        }
-
-        var backgroundServiceTypes = targetAssembly
-            .GetTypes()
-            .Where(t => t.IsClass && !t.IsAbstract && !t.IsNested)
+        var backgroundServiceTypes = GetTargetTypes()
             .Where(t =>
             {
                 var ns = t.Namespace;
@@ -235,7 +225,6 @@ public class App
                        ns.EndsWith("Services.Background", StringComparison.OrdinalIgnoreCase);
             })
             .Where(t => typeof(IHostedService).IsAssignableFrom(t))
-            .Where(t => !t.IsDefined(typeof(CompilerGeneratedAttribute), inherit: false))
             .ToArray();
 
         foreach (var backgroundServiceType in backgroundServiceTypes)
@@ -247,64 +236,43 @@ public class App
 
     private void RegisterHttpServices()
     {
-        var targetAssembly = ResolveTargetAssembly();
+        builder.Services.AddHttpClient();
 
-        var httpClientExtensionsType = Type.GetType("Microsoft.Extensions.DependencyInjection.HttpClientFactoryServiceCollectionExtensions, Microsoft.Extensions.Http");
-        if (httpClientExtensionsType == null)
-        {
-            Console.WriteLine("HttpClientFactory extensions not found. Skipping HTTP service registration.");
-            return;
-        }
-        var addHttpClientGenericMethod = httpClientExtensionsType
-            .GetMethods(BindingFlags.Public | BindingFlags.Static)
-            .FirstOrDefault(m =>
-                m.Name == "AddHttpClient" &&
-                m.IsGenericMethodDefinition &&
-                m.GetParameters().Length == 1);
-
-        if (addHttpClientGenericMethod == null)
-        {
-            Console.WriteLine("AddHttpClient generic method not available. Skipping HTTP service registration.");
-            return;
-        }
-
-        var httpServiceTypes = targetAssembly
-            .GetTypes()
-            .Where(t => t.IsClass && !t.IsAbstract && !t.IsNested)
-            .Where(t =>
-            {
-                var ns = t.Namespace;
-                return !string.IsNullOrEmpty(ns) &&
-                       ns.EndsWith("Services.Http", StringComparison.OrdinalIgnoreCase);
-            })
-            .Where(t => !t.IsDefined(typeof(CompilerGeneratedAttribute), inherit: false))
+        var httpServiceTypes = GetTargetTypes()
+            .Where(t => typeof(BaseHttpService).IsAssignableFrom(t))
             .ToArray();
 
         foreach (var httpServiceType in httpServiceTypes)
         {
-            try
+            var interfaceType = FindInterface(httpServiceType);
+            if (interfaceType != null)
             {
-                // Always register HttpClient for the concrete type (required for HTTP services)
-                var typedAddHttpClient = addHttpClientGenericMethod.MakeGenericMethod(httpServiceType);
-                typedAddHttpClient.Invoke(null, [builder.Services]);
-
-                // Also register with custom interface if it exists
-                var interfaceType = FindInterface(httpServiceType);
-                if (interfaceType != null)
-                {
-                    builder.Services.AddSingleton(interfaceType, httpServiceType);
-                    Console.WriteLine($"Registered HTTP service: {interfaceType.Name} -> {httpServiceType.Name}");
-                }
-                else
-                {
-                    Console.WriteLine($"Registered HTTP service: {httpServiceType.Name}");
-                }
+                builder.Services.AddSingleton(interfaceType, httpServiceType);
+                Console.WriteLine($"Registered HTTP service: {interfaceType.Name} -> {httpServiceType.Name}");
             }
-            catch (Exception ex)
+            else
             {
-                Console.WriteLine($"Failed to register HTTP service {httpServiceType.Name}: {ex.InnerException?.Message ?? ex.Message}");
+                builder.Services.AddSingleton(httpServiceType);
+                Console.WriteLine($"Registered HTTP service (no interface): {httpServiceType.Name}");
             }
         }
+    }
+
+    private Type[] GetTargetTypes()
+    {
+        if (cachedTargetTypes != null)
+        {
+            return cachedTargetTypes;
+        }
+
+        var targetAssembly = ResolveTargetAssembly();
+        cachedTargetTypes = targetAssembly
+            .GetTypes()
+            .Where(t => t.IsClass && !t.IsAbstract && !t.IsNested)
+            .Where(t => !t.IsDefined(typeof(CompilerGeneratedAttribute), inherit: false))
+            .ToArray();
+
+        return cachedTargetTypes;
     }
 
     private Assembly ResolveTargetAssembly()
@@ -439,6 +407,7 @@ public class App
                     });
                 }
             });
+        Console.WriteLine("Configured OpenTelemetry");
     }
 
     /// <summary>
@@ -466,4 +435,5 @@ public class App
 
         Console.WriteLine("Configured TigerBeetle Client");
     }
+
 }

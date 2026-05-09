@@ -27,6 +27,9 @@ The `cloops.microservices` SDK provides a simple and flexible configuration syst
 - `Cluster` - Target cluster name (default: `ccnp`)
 - `ConnectionString` - SQL database connection string
 - `EnableNatsConsumers` - Enable/disable NATS consumers (default: `False`)
+- `EnableRestEndpoints` - Enable/disable lightweight REST endpoints (default: `True`)
+- `RestPort` - Port used by the lightweight REST endpoint server (default: `8080`)
+- `RestApiSecret` - Shared secret for REST endpoints marked `RestAuth.Required`
 - `TigerBeetleAddresses` - Comma-separated TigerBeetle replica addresses
 - `TigerBeetleClusterId` - TigerBeetle cluster ID (default: `0`)
 
@@ -76,11 +79,15 @@ Configuration values are loaded from environment variables. Set them before star
 | `NATS_CONSUMER_MAX_DOP`        | NATS           | Maximum degree of parallelism for all consumers. These many messages can be processed in parallel from the message queue. This puts upper limit on rps (request per second) indirectly (e.g. if your avg latency is 200ms then max_dop × 5 is your max throughput). Increase this in order to support higher rps. Consider giving higher core / memory count as well | `128`                            | No       |
 | `NATS_ACCOUNT_SIGNING_SEED`    | NATS (Minting) | Signing account seed. **⚠️ Highly confidential. Only use in trusted services running on trusted infrastructure.** Used by minting service when you need your application to mint new NATS tokens. See instructions below                                                                                                                                             | None                             | No       |
 | `NATS_ACCOUNT_PUBLIC_KEY`      | NATS (Minting) | Main account public key. **⚠️ Highly confidential. Only use in trusted services running on trusted infrastructure.** Used by minting service when you need your application to mint new NATS tokens. See instructions below                                                                                                                                          | None                             | No       |
+| `DOTNET_ENVIRONMENT`           | Microservice   | Controls the .NET runtime environment. Set to `Development`, or any non-`Production` value, to render logs in a human-friendly console format. `Production` uses compact JSON logs                                                                                                                                                                                   | `Production`                     | No       |
 | `CCNPOTELENDPOINT`             | Microservice   | OTEL collector endpoint for exporting telemetry to CCNP                                                                                                                                                                                                                                                                                                              | None                             | No       |
 | `CCNPOTELHEADERS`              | Microservice   | Additional OTEL headers required when sending telemetry to CCNP                                                                                                                                                                                                                                                                                                      | None                             | No       |
 | `CLUSTER`                      | Microservice   | Target cluster where the service runs                                                                                                                                                                                                                                                                                                                                | `ccnp`                           | No       |
 | `CNSTR`                        | Microservice   | SQL database connection string                                                                                                                                                                                                                                                                                                                                       | None                             | No       |
 | `ENABLE_NATS_CONSUMERS`        | Microservice   | Controls whether NATS consumers start with the service                                                                                                                                                                                                                                                                                                               | `False`                          | No       |
+| `ENABLE_REST_ENDPOINTS`        | Microservice   | Controls whether the lightweight REST server starts. The SDK provides `/healthz` and `/readyz` when enabled                                                                                                                                                                                                                                                          | `True`                           | No       |
+| `REST_PORT`                    | Microservice   | Port used by the lightweight REST server                                                                                                                                                                                                                                                                                                                             | `8080`                           | No       |
+| `REST_API_SECRET`              | Microservice   | Shared secret required by REST endpoints marked `RestAuth.Required`. Send it as `Authorization: Bearer <secret>` or `X-CLOOPS-REST-SECRET: <secret>`                                                                                                                                                                                                                 | None                             | Only for auth-required REST endpoints |
 | `TB_ADDRESSES`                 | TigerBeetle    | Comma-separated TigerBeetle replica addresses. When provided, the SDK registers `TigerBeetle.Client` in dependency injection                                                                                                                                                                                                                                         | None                             | No       |
 | `TB_CLUSTER_ID`                | TigerBeetle    | TigerBeetle cluster ID used when creating the client                                                                                                                                                                                                                                                                                                                 | `0`                              | No       |
 
@@ -96,7 +103,11 @@ export CNSTR="Server=localhost;Database=mydb;..."
 export TB_ADDRESSES="127.0.0.1:3000"
 export TB_CLUSTER_ID=0
 export CLUSTER=production
+export DOTNET_ENVIRONMENT=Development
 export ENABLE_NATS_CONSUMERS=True
+export ENABLE_REST_ENDPOINTS=True
+export REST_PORT=8080
+export REST_API_SECRET="your-rest-secret"
 ```
 
 ### TigerBeetle Variables

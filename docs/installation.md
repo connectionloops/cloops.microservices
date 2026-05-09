@@ -105,13 +105,13 @@ await app.RunAsync();
 
 ### Custom Intro Message
 
-You can provide a custom function to generate a personalized intro message when the application starts. The function receives `BaseAppSettings` as a parameter and should return a string.
+You can provide a custom function to generate a personalized intro message when the application starts. The function receives `BaseAppSettings` and the non-null `WebApplicationBuilder` as parameters and should return a string.
 
 ```cs
 
 using CLOOPS.microservices;
 
-var app = new App((settings) =>
+var app = new App((settings, builder) =>
 {
     return $@"
         ╔══════════════════════════════════════╗
@@ -119,7 +119,8 @@ var app = new App((settings) =>
         ╚══════════════════════════════════════╝
 
         Application: {settings.AssemblyName}
-        Environment: {settings.Cluster}
+        Environment: {builder.Environment.EnvironmentName}
+        Cluster:     {settings.Cluster}
         NATS:        {settings.NatsURL}
     ";
 });

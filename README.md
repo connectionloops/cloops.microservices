@@ -2,13 +2,15 @@
 
 An opinionated library to build highly available, lean and scalable cloud native microservices using [NATS](https://nats.io/) as the primary communication layer.
 
+See [Change Log](/docs/change-log.md) for change log and what's new.
+
 > versions 1.1.14 and above target .net 10. If you need .net 9, please use 1.1.13.
 
 ## 🎯 Overview
 
 Minimize undifferentiated work and get all the bells and whistles for a lean, high-performance, and scalable microservices setup. Check out the [docs](/docs/README.md) for detailed guides.
 
-> **No REST interfaces.** This SDK uses NATS as the primary way for your services to communicate with each other. This extends to UI as well.
+> This SDK uses NATS as the primary way for services to communicate. Lightweight REST support is included for Kubernetes probes and webhook ingress. See [REST Support](/docs/rest.md) for more details.
 
 ### 🚀 Why C# for Microservices?
 

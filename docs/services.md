@@ -233,19 +233,22 @@ namespace cljps.scheduler.services.background
 
 These are services that uses a http client to call third party (3P) http APIs.
 
-http client is a very special class and it should not be instantiated at will. Creating a new http client every time can quickly results in port exhaustion. It is therefore recommended to reuse http client. People typically create one http client for one coherent functionality. e.g.
+HTTP services are registered as singleton services by the framework. This matters because NATS controllers/consumers are also singletons, so any dependency injected into a controller constructor can be held for the lifetime of the app.
+
+Use `IHttpClientFactory` instead of storing one long-lived `HttpClient` instance. The factory creates fresh logical `HttpClient` instances while pooling the underlying handlers, which avoids port exhaustion and supports handler rotation. For the official Microsoft guidance, see [HTTP requests with IHttpClientFactory - basic usage](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/http-requests?view=aspnetcore-10.0#basic-usage).
+
+People typically create one HTTP service for one coherent external API. e.g.
 
 1. http client to make API calls to Azure.
 2. http client to make API calls to GitHub
 
-http services in cloops.microservices just means that the service will have access to an injected http client who's lifecycle is managed. It is recommended that you create one http service per 3P REST API service. e.g. If you were to incorporate above example, you would create two http services.
+HTTP services in cloops.microservices should either inherit from `BaseHttpService` or inject `IHttpClientFactory` directly. It is recommended that you create one HTTP service per 3P REST API service. e.g. If you were to incorporate above example, you would create two HTTP services.
 
 1. AzureService
 2. GitHubService
 
-each of these will come with their own managed http client, and you wouldn't run into port exhaustion.
+each of these will create managed clients through `IHttpClientFactory`, and you wouldn't run into port exhaustion.
 
-> For more information on http client, please read - [this](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/http-requests)
 > Please note: you wouldn't use this to communicate with other microservices created using cloops.nats. It is mainly for talking to http services not nats based services.
 
 > **To register a class as a http service it has to belong to a namespace ending with `Services.Http` . e.g. `Cljps.Services.Http`**
@@ -255,18 +258,18 @@ Example from CLJPS (Connection Loops Job Processing System):
 ```cs
 using CLOOPS.NATS;
 using CLOOPS.NATS.Messages.CLJPS;
+using CLOOPS.microservices;
+using Microsoft.Extensions.Logging;
 using System.Text.Json.Nodes;
 using CljpsHttpMethod = CLOOPS.NATS.Messages.CLJPS.HttpMethod;
 using System.Diagnostics;
 
 namespace cljps.worker.services.http;
-public sealed class JobExecutionService
+public sealed class JobExecutionService : BaseHttpService
 {
-    private readonly HttpClient _httpClient;
-    public JobExecutionService(HttpClient httpClient)
+    public JobExecutionService(IHttpClientFactory httpClientFactory, ILogger<JobExecutionService> logger)
+        : base(httpClientFactory, logger)
     {
-        _httpClient = httpClient; // injected http client
-        // add any common headers, base url etc.
     }
 
     public async Task<bool> execute(RunnableJob job, CancellationToken ct)
@@ -282,7 +285,8 @@ public sealed class JobExecutionService
         HttpResponseMessage? responseMessage = null;
         try
         {
-            responseMessage = await _httpClient.SendAsync(requestMessage, ct);
+            using var httpClient = CreateClient();
+            responseMessage = await httpClient.SendAsync(requestMessage, ct);
             isSuccess = responseMessage.IsSuccessStatusCode;
             statusCode = (int)responseMessage.StatusCode;
         }

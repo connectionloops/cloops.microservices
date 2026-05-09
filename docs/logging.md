@@ -120,7 +120,7 @@ The logging configuration is automatically adjusted based on the environment:
 - **Production:** Logs are output in compact JSON format (structured logging) for easy parsing by log collectors
 - **Non-Production:** Logs are output in a human-readable, colorized format for easier development
 
-The environment is determined by the `ASPNETCORE_ENVIRONMENT` or `DOTNET_ENVIRONMENT` environment variable.
+The environment is determined by the `DOTNET_ENVIRONMENT` environment variable and defaults to `Production`. Set it to `Development`, or any non-`Production` value, to render logs in a human-friendly console format.
 
 ## Production Logging Setup
 
