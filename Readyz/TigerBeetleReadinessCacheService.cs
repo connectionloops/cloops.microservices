@@ -12,6 +12,7 @@ namespace CLOOPS.microservices.Readyz;
 [CacheConfig(
     name: TigerBeetleReadinessCacheService.CacheNameValue,
     l1Ttl: "00:05:00",
+    RefreshOnStartup = true,
     RefreshCron = "0 */4 * * * *")]
 internal sealed class TigerBeetleReadinessCacheService : BaseCacheService<bool>
 {
