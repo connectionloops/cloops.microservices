@@ -2,21 +2,21 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
+using CLOOPS.microservices.Readyz;
 using CLOOPS.NATS;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using NATS.Client.Core;
+using Serilog;
 
 namespace CLOOPS.microservices;
 
 public partial class App
 {
     private static readonly IResult RestHealthOkResult = Results.Ok(new { status = "ok" });
-    private static readonly IResult RestReadyOkResult = Results.Ok(new { ready = true });
-    private static readonly IResult RestReadyUnavailableResult = Results.Json(new { ready = false }, statusCode: StatusCodes.Status503ServiceUnavailable);
     private byte[]? restApiSecretBytes;
 
     private void RegisterRestEndpoints()
@@ -40,11 +40,11 @@ public partial class App
             if (interfaceType != null)
             {
                 builder.Services.AddSingleton(interfaceType, sp => sp.GetRequiredService(restType));
-                Console.WriteLine($"Registered REST endpoint class: {interfaceType.Name} -> {restType.Name}");
+                Log.Information("✅ Registered REST endpoint class: {InterfaceName} -> {RestTypeName}", interfaceType.Name, restType.Name);
             }
             else
             {
-                Console.WriteLine($"Registered REST endpoint class: {restType.Name}");
+                Log.Information("✅ Registered REST endpoint class: {RestTypeName}", restType.Name);
             }
 
             var endpointMethods = restType
@@ -77,7 +77,7 @@ public partial class App
     {
         if (!appSettings.EnableRestEndpoints)
         {
-            app.Logger.LogInformation("REST endpoints are disabled");
+            app.Logger.LogInformation("ℹ️ REST endpoints are disabled");
             return;
         }
 
@@ -85,12 +85,11 @@ public partial class App
         ValidateProtectedRestEndpointsHaveSecret(registry);
 
         app.MapGet("/healthz", () => RestHealthOkResult);
-        app.MapGet("/readyz", () =>
-        {
-            var client = app.Services.GetService<ICloopsNatsClient>();
-            var ready = client?.Connection.ConnectionState == NatsConnectionState.Open;
-            return ready ? RestReadyOkResult : RestReadyUnavailableResult;
-        });
+        app.MapGet("/readyz", (
+            [FromServices] ICloopsNatsClient? natsClient,
+            [FromServices] BaseAppSettings settings,
+            [FromServices] TigerBeetleReadinessCacheService? tigerBeetleReadiness,
+            CancellationToken ct) => ReadyzAsync(natsClient, settings, tigerBeetleReadiness, ct));
 
         foreach (var endpoint in registry.Endpoints)
         {
@@ -106,14 +105,14 @@ public partial class App
                 await WriteRestEndpointResultAsync(context, value).ConfigureAwait(false);
             });
 
-            app.Logger.LogInformation("Mapped REST endpoint: {Method} {Path} -> {Endpoint}.{Handler}",
+            app.Logger.LogInformation("✅ Mapped REST endpoint: {Method} {Path} -> {Endpoint}.{Handler}",
                 endpoint.HttpMethod,
                 endpoint.Path,
                 endpoint.EndpointType.Name,
                 endpoint.Method.Name);
         }
 
-        app.Logger.LogInformation("REST endpoints listening on port {RestPort}", appSettings.RestPort);
+        app.Logger.LogInformation("✅ REST endpoints listening on port {RestPort}", appSettings.RestPort);
     }
 
     private static void ValidateRestEndpointMappings(IEnumerable<RestEndpointDefinition> endpointDefinitions)

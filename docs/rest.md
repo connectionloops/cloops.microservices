@@ -9,7 +9,9 @@ REST endpoints are enabled by default. The SDK starts Kestrel on `REST_PORT` and
 | Method | Path       | Auth   | Response                                                                                            |
 | ------ | ---------- | ------ | --------------------------------------------------------------------------------------------------- |
 | `GET`  | `/healthz` | Public | `200 OK` with `{ "status": "ok" }`                                                                  |
-| `GET`  | `/readyz`  | Public | `200 OK` with `{ "ready": true }` when NATS is connected, otherwise `503` with `{ "ready": false }` |
+| `GET`  | `/readyz`  | Public | `200 OK` with `{ "ready": true }` when NATS is connected and configured TigerBeetle is reachable, otherwise `503` with `{ "ready": false, "reason": "..." }` |
+
+`/readyz` is designed to be cheap to call. The NATS check is an in-memory connection-state read. The TigerBeetle check reads a cached L1-only probe result — the actual RPC to TigerBeetle runs in the background every ~4 minutes (see `TigerBeetleReadinessCacheService`), not on every request.
 
 ## Configuration
 

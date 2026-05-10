@@ -1,9 +1,9 @@
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Reflection;
+using CLOOPS.microservices.Readyz;
 using CLOOPS.NATS;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -78,19 +78,19 @@ public partial class App
         Console.WriteLine(introMessage);
         Console.WriteLine("Boostrapping app...");
 
+        ConfigureLogger();
+        Log.Information("✅ Configured Serilog");
+
         // add singleton services
         builder.Services.AddSingleton(appSettings);
-        Console.WriteLine("Mapped AppSettings");
-
-        ConfigureLogger();
-        Console.WriteLine("Configured Serilog");
+        Log.Information("✅ Mapped AppSettings");
 
         ConfigureTigerBeetle(appSettings);
 
         if (!string.IsNullOrEmpty(appSettings.ConnectionString))
         {
             builder.Services.AddSingleton<IDB>(new DB(appSettings.ConnectionString));
-            Console.WriteLine("Configured DB");
+            Log.Information("✅ Configured DB");
         }
 
         if (!string.IsNullOrEmpty(appSettings.NatsURL))
@@ -103,7 +103,7 @@ public partial class App
             builder.Services.AddSingleton<ICloopsNatsClient>(cnc);
             builder.Services.AddHostedService<NatsLifecycleService>();
             builder.Services.AddSingleton<INatsMetricsService, NatsMetricsService>();
-            Console.WriteLine("Configured NATS Client, Lifecycle Service, and Metrics Service");
+            Log.Information("✅ Configured NATS Client, Lifecycle Service, and Metrics Service");
         }
 
         ConfigureOTEL();
@@ -149,13 +149,13 @@ public partial class App
             if (interfaceType != null)
             {
                 builder.Services.AddSingleton(interfaceType, controllerType);
-                Console.WriteLine($"Registered controller: {interfaceType.Name} -> {controllerType.Name}");
+                Log.Information("✅ Registered controller: {InterfaceName} -> {ControllerName}", interfaceType.Name, controllerType.Name);
             }
             else
             {
                 // Fallback: register concrete type if no interface found
                 builder.Services.AddSingleton(controllerType);
-                Console.WriteLine($"Registered controller (no interface): {controllerType.Name}");
+                Log.Information("✅ Registered controller (no interface): {ControllerName}", controllerType.Name);
             }
         }
     }
@@ -184,13 +184,13 @@ public partial class App
             if (interfaceType != null)
             {
                 builder.Services.AddSingleton(interfaceType, serviceType);
-                Console.WriteLine($"Registered service: {interfaceType.Name} -> {serviceType.Name}");
+                Log.Information("✅ Registered service: {InterfaceName} -> {ServiceName}", interfaceType.Name, serviceType.Name);
             }
             else
             {
                 // Fallback: register concrete type if no interface found
                 builder.Services.AddSingleton(serviceType);
-                Console.WriteLine($"Registered service (no interface): {serviceType.Name}");
+                Log.Information("✅ Registered service (no interface): {ServiceName}", serviceType.Name);
             }
         }
     }
@@ -234,7 +234,7 @@ public partial class App
         foreach (var backgroundServiceType in backgroundServiceTypes)
         {
             builder.Services.AddSingleton(typeof(IHostedService), backgroundServiceType);
-            Console.WriteLine($"Registered background service: {backgroundServiceType.Name}");
+            Log.Information("✅ Registered background service: {BackgroundServiceName}", backgroundServiceType.Name);
         }
     }
 
@@ -252,12 +252,12 @@ public partial class App
             if (interfaceType != null)
             {
                 builder.Services.AddSingleton(interfaceType, httpServiceType);
-                Console.WriteLine($"Registered HTTP service: {interfaceType.Name} -> {httpServiceType.Name}");
+                Log.Information("✅ Registered HTTP service: {InterfaceName} -> {HttpServiceName}", interfaceType.Name, httpServiceType.Name);
             }
             else
             {
                 builder.Services.AddSingleton(httpServiceType);
-                Console.WriteLine($"Registered HTTP service (no interface): {httpServiceType.Name}");
+                Log.Information("✅ Registered HTTP service (no interface): {HttpServiceName}", httpServiceType.Name);
             }
         }
     }
@@ -292,7 +292,7 @@ public partial class App
 
         if (targetAssembly == null)
         {
-            Console.WriteLine("No assembly found for registration.");
+            Log.Error("❌ No assembly found for registration");
             throw new Exception("No assembly found for registration.");
         }
         return targetAssembly;
@@ -411,7 +411,7 @@ public partial class App
                     });
                 }
             });
-        Console.WriteLine("Configured OpenTelemetry");
+        Log.Information("✅ Configured OpenTelemetry");
     }
 
     /// <summary>
@@ -421,7 +421,7 @@ public partial class App
     {
         if (String.IsNullOrWhiteSpace(appSettings.TigerBeetleAddresses))
         {
-            Console.WriteLine("No TigerBeetle Database Configured");
+            Log.Information("ℹ️ No TigerBeetle database configured");
             return;
         }
 
@@ -430,14 +430,21 @@ public partial class App
 
         if (addresses.Length == 0)
         {
-            Console.WriteLine("No valid TigerBeetle addresses configured");
+            Log.Warning("⚠️ No valid TigerBeetle addresses configured");
             return;
         }
 
         builder.Services.AddSingleton(_ =>
             new TigerBeetle.Client(appSettings.TigerBeetleClusterId, addresses));
 
-        Console.WriteLine("Configured TigerBeetle Client");
+        Log.Information("✅ Configured TigerBeetle client");
+
+        // Register the L1-only readiness cache so /readyz reads a cached probe result
+        // instead of hitting TigerBeetle on every request.
+        builder.Services.AddSingleton<TigerBeetleReadinessCacheService>();
+        builder.Services.AddSingleton<IHostedService>(sp =>
+            sp.GetRequiredService<TigerBeetleReadinessCacheService>());
+        Log.Information("✅ Registered TigerBeetle readiness cache (L1-only, 5m TTL, 4m refresh)");
     }
 
 }

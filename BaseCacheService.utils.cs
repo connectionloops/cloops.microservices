@@ -33,7 +33,8 @@ public abstract partial class BaseCacheService<TValue>
         return new HybridCacheEntryOptions
         {
             Expiration = options.L2Ttl ?? config.L2Ttl,
-            LocalCacheExpiration = options.L1Ttl ?? config.L1Ttl
+            LocalCacheExpiration = options.L1Ttl ?? config.L1Ttl,
+            Flags = defaultEntryOptions.Flags,
         };
     }
 

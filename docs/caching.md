@@ -34,6 +34,8 @@ Redis is configured from environment variables:
 
 If `REDIS_CONNECTION_STRING` is empty, cache services run in L1-only mode. If Redis is configured, the SDK registers `IDistributedCache` with StackExchange.Redis and `HybridCache` uses it as the secondary cache.
 
+Per-cache L2 opt-out is also available — see `EnableL2` in the [`[CacheConfig]` Attribute](#cacheconfig-attribute) section. The distributed L2 cache is only effectively used when **both** `EnableL2` is `true` (the default) AND `REDIS_CONNECTION_STRING` is set.
+
 ## Registering Cache Services
 
 Create cache service classes in a namespace ending with `.Cache`, inherit from `BaseCacheService<TValue>`, and decorate with `[CacheConfig(...)]`. The SDK scans the application assembly for these types and registers each one as:
@@ -118,15 +120,37 @@ For unit tests, depend on the cache-specific interface (for example, `IPatientCa
 
 `CacheConfigAttribute` is **required** on every cache service. It carries all cache-level configuration:
 
-| Property           | Required | Meaning                                                                                                                  |
-| ------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `name` (ctor arg)  | Yes      | Stable cache name used as the key prefix and HybridCache tag. Cannot contain `:`. Must be unique across the application. |
-| `l1Ttl` (ctor arg) | Yes      | Local in-process TTL, as a `TimeSpan` string (e.g. `"00:05:00"` for 5 minutes).                                          |
-| `l2Ttl` (ctor arg) | Yes      | Distributed TTL, as a `TimeSpan` string (e.g. `"01:00:00"` for 1 hour).                                                  |
-| `RefreshCron`      | No       | Cron expression that periodically triggers `HydrateAllAsync`. Requires the cache service to override `HydrateAllAsync`.  |
-| `RefreshOnStartup` | No       | Defaults to `false`. When `true`, one best-effort bulk refresh runs during host startup. See _Startup behavior_ below.   |
+| Property           | Required | Meaning                                                                                                                                                                                    |
+| ------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `name` (ctor arg)  | Yes      | Stable cache name used as the key prefix and HybridCache tag. Cannot contain `:`. Must be unique across the application.                                                                   |
+| `l1Ttl` (ctor arg) | Yes      | Local in-process TTL, as a `TimeSpan` string (e.g. `"00:05:00"` for 5 minutes).                                                                                                            |
+| `l2Ttl` (ctor arg) | Yes\*    | Distributed TTL, as a `TimeSpan` string (e.g. `"01:00:00"` for 1 hour). Omit when using the L1-only constructor `[CacheConfig(name, l1Ttl)]`, which automatically sets `EnableL2 = false`. |
+| `EnableL2`         | No       | Defaults to `true`. When `false`, the cache service never writes to or reads from the distributed L2 cache, even if Redis is configured. The L1-only constructor sets this automatically.  |
+| `RefreshCron`      | No       | Cron expression that periodically triggers `HydrateAllAsync`. Requires the cache service to override `HydrateAllAsync`.                                                                    |
+| `RefreshOnStartup` | No       | Defaults to `false`. When `true`, one best-effort bulk refresh runs during host startup. See _Startup behavior_ below.                                                                     |
 
 Cache name uniqueness is validated at startup; two cache services sharing a name throws `InvalidOperationException` before the host runs.
+
+### Distributed refresh lock
+
+Bulk refresh (`HydrateAllAsync` invoked by `RefreshCron`, `RefreshOnStartup`, or an explicit `RefreshAllAsync`) is coordinated with a NATS-backed distributed lock so only one pod hydrates per refresh cycle. This coordination is **derived from `EnableL2`**:
+
+- `EnableL2 = true` (default): refresh updates shared distributed state in Redis, so only one pod should hydrate per cycle. The distributed lock is used. If NATS is not configured, the SDK logs a warning and proceeds without a lock.
+- `EnableL2 = false`: refresh updates per-pod L1 state only, so every pod must hydrate independently on every cron tick. The distributed lock is not used.
+
+### L1-only caches
+
+When a cache should never use the distributed L2 — for example a per-pod readiness probe, or a workload-local cache that you specifically don't want shared via Redis — use the L1-only constructor and the framework will skip Redis even if `REDIS_CONNECTION_STRING` is set, and every pod will refresh independently on every cron tick:
+
+```csharp
+[CacheConfig(
+    name: "tigerbeetle-readiness",
+    l1Ttl: "00:05:00",
+    RefreshCron = "0 */4 * * * *")]
+internal sealed class TigerBeetleReadinessCacheService : BaseCacheService<bool> { ... }
+```
+
+The two-argument constructor sets `EnableL2 = false` automatically. You can also use the three-argument constructor and set `EnableL2 = false` explicitly if you want to keep `l2Ttl` for documentation.
 
 ## Cache Service API
 

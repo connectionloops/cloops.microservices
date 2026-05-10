@@ -46,13 +46,13 @@ public class NatsLifecycleService : BackgroundService
     {
         _client.Connection.ConnectionDisconnected += (_, e) =>
         {
-            _logger.LogError("NATS disconnected.");
+            _logger.LogError("❌ NATS disconnected.");
             return ValueTask.CompletedTask;
         };
 
         _client.Connection.ConnectionOpened += (_, e) =>
         {
-            _logger.LogInformation("NATS connected");
+            _logger.LogInformation("✅ NATS connected");
             return ValueTask.CompletedTask;
         };
 
@@ -62,17 +62,17 @@ public class NatsLifecycleService : BackgroundService
         {
             if (_appsettings.EnableNatsConsumers)
             {
-                _logger.LogInformation("EnableNatsConsumers is enabled, starting NATS consumers");
+                _logger.LogInformation("✅ EnableNatsConsumers is enabled, starting NATS consumers");
                 await _client.MapConsumers(_sp, stoppingToken, [_appsettings.AssemblyName]);
             }
             else
             {
-                _logger.LogInformation("EnableNatsConsumers is disabled, skipping NATS consumers");
+                _logger.LogInformation("ℹ️ EnableNatsConsumers is disabled, skipping NATS consumers");
             }
         }
         else
         {
-            _logger.LogError("NATS is not able to connect, cannot start consumers");
+            _logger.LogError("❌ NATS is not able to connect, cannot start consumers");
         }
     }
 }

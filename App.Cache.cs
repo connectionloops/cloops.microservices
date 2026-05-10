@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Serilog;
 using StackExchange.Redis;
 using System.Reflection;
 
@@ -27,11 +28,11 @@ public partial class App
                 options.InstanceName = instanceName;
             });
 
-            Console.WriteLine($"Configured HybridCache with Redis L2 cache (instance prefix: {instanceName})");
+            Log.Information("✅ Configured HybridCache with Redis L2 cache (instance prefix: {RedisInstancePrefix})", instanceName);
         }
         else
         {
-            Console.WriteLine("Configured HybridCache with L1 memory cache only (REDIS_CONNECTION_STRING not set)");
+            Log.Information("✅ Configured HybridCache with L1 memory cache only (REDIS_CONNECTION_STRING not set)");
         }
 
         builder.Services.AddHybridCache();
@@ -66,16 +67,16 @@ public partial class App
             {
                 // add an alias for interface so we can resolve via cache service interface
                 builder.Services.AddSingleton(interfaceType, sp => sp.GetRequiredService(cacheServiceType));
-                Console.WriteLine($"Registered cache service: {interfaceType.Name} -> {cacheServiceType.Name}");
+                Log.Information("✅ Registered cache service: {InterfaceName} -> {CacheServiceName}", interfaceType.Name, cacheServiceType.Name);
             }
             else
             {
-                Console.WriteLine($"Registered cache service: {cacheServiceType.Name}");
+                Log.Information("✅ Registered cache service: {CacheServiceName}", cacheServiceType.Name);
             }
 
             // make it a hosted service and point to same instance
             builder.Services.AddSingleton(typeof(IHostedService), sp => (IHostedService)sp.GetRequiredService(cacheServiceType));
-            Console.WriteLine($"Registered cache hosted service: {cacheServiceType.Name}");
+            Log.Information("✅ Registered cache hosted service: {CacheServiceName}", cacheServiceType.Name);
         }
     }
 

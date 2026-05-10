@@ -54,7 +54,10 @@ public abstract partial class BaseCacheService<TValue> : IHostedService, IDispos
         defaultEntryOptions = new HybridCacheEntryOptions
         {
             Expiration = config.L2Ttl,
-            LocalCacheExpiration = config.L1Ttl
+            LocalCacheExpiration = config.L1Ttl,
+            Flags = config.EnableL2
+                ? null
+                : HybridCacheEntryFlags.DisableDistributedCache,
         };
         entryTags = [config.Name];
         hasBulkHydration = new Lazy<bool>(ComputeHasBulkHydration, isThreadSafe: true);

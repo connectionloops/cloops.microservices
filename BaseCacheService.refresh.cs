@@ -26,6 +26,14 @@ public abstract partial class BaseCacheService<TValue>
             throw new ArgumentOutOfRangeException(nameof(retries), retries, "Retries cannot be negative.");
         }
 
+        if (!config.UseDistributedRefreshLock)
+        {
+            // Per-pod refresh: every instance hydrates independently. Used for caches
+            // whose value is intrinsically per-pod (e.g. an L1-only readiness probe).
+            await ReplaceAllAsync(ct);
+            return;
+        }
+
         if (natsClient == null)
         {
             logger.LogWarning("[{CacheName}]::NATS client is not configured; running cache refresh without a distributed lock", CacheName);
@@ -72,7 +80,10 @@ public abstract partial class BaseCacheService<TValue>
 
         if (config.RefreshOnStartup)
         {
-            await WaitForNatsConnectionAsync(cancellationToken);
+            if (config.UseDistributedRefreshLock)
+            {
+                await WaitForNatsConnectionAsync(cancellationToken);
+            }
             await RefreshAllAsync(retries: 0, throwOnFail: false, ct: cancellationToken);
         }
 
