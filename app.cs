@@ -107,12 +107,16 @@ public partial class App
         }
 
         ConfigureOTEL();
+        ConfigureCaching();
 
         RegisterControllers();
         RegisterServices();
         RegisterRestEndpoints();
-        RegisterBackgroundServices();
         RegisterHttpServices();
+        // Cache services must register before background services so that hosted-service
+        // start order is: cache (incl. optional blocking startup hydration) → background jobs.
+        RegisterCacheServices();
+        RegisterBackgroundServices();
     }
 
     /// <summary>

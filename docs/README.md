@@ -48,5 +48,5 @@ Before diving in, it's recommended that you:
 - **17. ⏰ Background Jobs(WIP)**
 - **18. 🔒 [Distributed Locks](./distributed-locks.md)**
 - **19. 🔐 Decentralized JWT Auth for UI**
-- **20. 💨 Caching (WIP)**
+- **20. 💨 [Caching](./caching.md)**
 - **21. 🧭 [Additional Setup](./additional-setup.md)**

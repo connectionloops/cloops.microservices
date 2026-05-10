@@ -25,6 +25,7 @@
     <PackageReference Include="cloops.nats" Version="*" />
     <PackageReference Include="cronos" Version="0.13.0" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" Version="10.1.0" />
     <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.7" />
     <PackageReference Include="OpenTelemetry" Version="1.15.3" />
     <PackageReference Include="OpenTelemetry.Api" Version="1.15.3" />

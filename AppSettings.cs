@@ -48,6 +48,16 @@ public class BaseAppSettings
     public string ConnectionString { get; init; } = Environment.GetEnvironmentVariable("CNSTR") ?? "";
 
     /// <summary>
+    /// Gets the Redis connection string used by distributed caching.
+    /// </summary>
+    public string RedisConnectionString { get; init; } = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING") ?? "";
+
+    /// <summary>
+    /// Gets the optional Redis instance name prefix used by distributed caching.
+    /// </summary>
+    public string RedisInstanceName { get; init; } = Environment.GetEnvironmentVariable("REDIS_INSTANCE_NAME") ?? "";
+
+    /// <summary>
     /// Gets a value indicating whether NATS consumers should run.
     /// </summary>
     public bool EnableNatsConsumers { get; init; } = Convert.ToBoolean(Environment.GetEnvironmentVariable("ENABLE_NATS_CONSUMERS") ?? "False");
