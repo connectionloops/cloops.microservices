@@ -115,6 +115,7 @@ public abstract partial class BaseCacheService<TValue>
         catch (OperationCanceledException)
         {
         }
+        logger.LogInformation("Stopping {name} cache", config.Name);
     }
 
     private async Task RunScheduledRefreshAsync(Cronos.CronExpression cronExpression, string refreshCron, CancellationToken stoppingToken)

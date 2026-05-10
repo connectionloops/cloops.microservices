@@ -11,9 +11,9 @@ namespace CLOOPS.microservices.Readyz;
 /// </summary>
 [CacheConfig(
     name: TigerBeetleReadinessCacheService.CacheNameValue,
-    l1Ttl: "00:05:00",
+    l1Ttl: "00:03:00",
     RefreshOnStartup = true,
-    RefreshCron = "0 */4 * * * *")]
+    RefreshCron = "0 */2 * * * *")]
 internal sealed class TigerBeetleReadinessCacheService : BaseCacheService<bool>
 {
     internal const string CacheNameValue = "tigerbeetle-readiness";
