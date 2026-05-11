@@ -40,6 +40,8 @@ For ledger-shaped workloads such as balances, credits, debits, money movement, t
 
 This page focuses on SQL Server operations through `IDB`.
 
+For schema changes, see [Database Migrations](./migrations.md). The SDK can run DbUp migrations from a `migrations` folder copied next to the app binary.
+
 The `DB` class provides asynchronous database operations with the following key features:
 
 - **Streaming results**: Process rows one at a time without loading everything into memory

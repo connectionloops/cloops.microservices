@@ -85,8 +85,6 @@ public partial class App
         builder.Services.AddSingleton(appSettings);
         Log.Information("✅ Mapped AppSettings");
 
-        ConfigureTigerBeetle(appSettings);
-
         if (!string.IsNullOrEmpty(appSettings.ConnectionString))
         {
             builder.Services.AddSingleton<IDB>(new DB(appSettings.ConnectionString));
@@ -113,8 +111,13 @@ public partial class App
         RegisterServices();
         RegisterRestEndpoints();
         RegisterHttpServices();
+        // Hosted services start in registration order. NATS is registered above so
+        // migrations can acquire a distributed lock before caches/background jobs run.
+        builder.Services.AddHostedService<DbMigrationHostedService>();
+        Log.Information("✅ Registered DB migration hosted service");
+        ConfigureTigerBeetle(appSettings);
         // Cache services must register before background services so that hosted-service
-        // start order is: cache (incl. optional blocking startup hydration) → background jobs.
+        // start order is: NATS → migrations → TigerBeetle/cache (incl. optional blocking startup hydration) → background jobs.
         RegisterCacheServices();
         RegisterBackgroundServices();
     }

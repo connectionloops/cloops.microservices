@@ -1,15 +1,10 @@
 using CLOOPS.microservices.Extensions;
 using Microsoft.Extensions.Logging;
-using NATS.Client.Core;
 
 namespace CLOOPS.microservices;
 
 public abstract partial class BaseCacheService<TValue>
 {
-    // These variables control how we wait until NATS connection is established.
-    private static readonly TimeSpan NatsConnectionWaitTimeout = TimeSpan.FromSeconds(60);
-    private static readonly TimeSpan NatsConnectionPollInterval = TimeSpan.FromMilliseconds(250);
-
     /// <summary>
     /// Refreshes the entire cache from the source of truth via <see cref="HydrateAllAsync"/>.
     /// Acquires a distributed lock so only one pod hydrates at a time when NATS is configured.
@@ -82,7 +77,18 @@ public abstract partial class BaseCacheService<TValue>
         {
             if (config.UseDistributedRefreshLock)
             {
-                await WaitForNatsConnectionAsync(cancellationToken);
+                if (natsClient != null && !BaseUtil.IsNatsConnected(natsClient))
+                {
+                    logger.LogInformation("[{CacheName}]::Waiting up to {NatsWaitTimeout} for NATS to connect before startup refresh", CacheName, BaseUtil.NatsConnectionWaitTimeout);
+                    if (await BaseUtil.WaitForNatsConnectionAsync(natsClient, cancellationToken).ConfigureAwait(false))
+                    {
+                        logger.LogInformation("[{CacheName}]::NATS connection established; proceeding with startup refresh", CacheName);
+                    }
+                    else
+                    {
+                        logger.LogWarning("[{CacheName}]::Timed out waiting for NATS after {NatsWaitTimeout}; startup refresh will run without a distributed lock", CacheName, BaseUtil.NatsConnectionWaitTimeout);
+                    }
+                }
             }
             await RefreshAllAsync(retries: 0, throwOnFail: false, ct: cancellationToken);
         }
@@ -159,45 +165,6 @@ public abstract partial class BaseCacheService<TValue>
         }
 
         logger.LogDebug("[{CacheName}]::Refreshed {CacheEntryCount} cache entries", CacheName, values.Count);
-    }
-
-    /// <summary>
-    /// Waits until the NATS client reports <see cref="NatsConnectionState.Open"/> or the
-    /// timeout elapses. Returning without a connection is intentional: the caller falls
-    /// back to refreshing without a distributed lock so a flaky NATS doesn't keep the
-    /// cache permanently cold.
-    /// </summary>
-    private async Task WaitForNatsConnectionAsync(CancellationToken ct)
-    {
-        if (natsClient == null)
-        {
-            return;
-        }
-
-        if (natsClient.Connection.ConnectionState == NatsConnectionState.Open)
-        {
-            return;
-        }
-
-        logger.LogInformation("[{CacheName}]::Waiting up to {NatsWaitTimeout} for NATS to connect before startup refresh", CacheName, NatsConnectionWaitTimeout);
-        var deadline = DateTimeOffset.UtcNow + NatsConnectionWaitTimeout;
-        while (natsClient.Connection.ConnectionState != NatsConnectionState.Open)
-        {
-            if (ct.IsCancellationRequested)
-            {
-                return;
-            }
-
-            if (DateTimeOffset.UtcNow >= deadline)
-            {
-                logger.LogWarning("[{CacheName}]::Timed out waiting for NATS after {NatsWaitTimeout}; startup refresh will run without a distributed lock", CacheName, NatsConnectionWaitTimeout);
-                return;
-            }
-
-            await Task.Delay(NatsConnectionPollInterval, ct);
-        }
-
-        logger.LogInformation("[{CacheName}]::NATS connection established; proceeding with startup refresh", CacheName);
     }
 
     private static TimeSpan GetRefreshRetryDelay()

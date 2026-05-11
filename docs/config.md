@@ -26,6 +26,7 @@ The `cloops.microservices` SDK provides a simple and flexible configuration syst
 - `OtelHeaders` - OpenTelemetry headers
 - `Cluster` - Target cluster name (default: `ccnp`)
 - `ConnectionString` - SQL database connection string
+- `EnableMigrations` - Enable/disable startup database migrations when a `migrations` folder is present (default: `True`)
 - `EnableNatsConsumers` - Enable/disable NATS consumers (default: `False`)
 - `EnableRestEndpoints` - Enable/disable lightweight REST endpoints (default: `True`)
 - `RestPort` - Port used by the lightweight REST endpoint server (default: `8080`)
@@ -84,6 +85,7 @@ Configuration values are loaded from environment variables. Set them before star
 | `CCNPOTELHEADERS`              | Microservice   | Additional OTEL headers required when sending telemetry to CCNP                                                                                                                                                                                                                                                                                                      | None                             | No       |
 | `CLUSTER`                      | Microservice   | Target cluster where the service runs                                                                                                                                                                                                                                                                                                                                | `ccnp`                           | No       |
 | `CNSTR`                        | Microservice   | SQL database connection string                                                                                                                                                                                                                                                                                                                                       | None                             | No       |
+| `ENABLE_MIGRATIONS`            | Microservice   | Controls whether startup database migrations run when a `migrations` folder exists next to the app binary                                                                                                                                                                                                                                                            | `True`                           | No       |
 | `ENABLE_NATS_CONSUMERS`        | Microservice   | Controls whether NATS consumers start with the service                                                                                                                                                                                                                                                                                                               | `False`                          | No       |
 | `ENABLE_REST_ENDPOINTS`        | Microservice   | Controls whether the lightweight REST server starts. The SDK provides `/healthz` and `/readyz` when enabled                                                                                                                                                                                                                                                          | `True`                           | No       |
 | `REST_PORT`                    | Microservice   | Port used by the lightweight REST server                                                                                                                                                                                                                                                                                                                             | `8080`                           | No       |
@@ -100,6 +102,7 @@ export DEBUG=True
 export NATS_URL=tls://nats.example.com:4222
 export NATS_CREDS="your-credentials-here"
 export CNSTR="Server=localhost;Database=mydb;..."
+export ENABLE_MIGRATIONS=True
 export TB_ADDRESSES="127.0.0.1:3000"
 export TB_CLUSTER_ID=0
 export CLUSTER=production

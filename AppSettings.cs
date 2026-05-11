@@ -63,6 +63,11 @@ public class BaseAppSettings
     public bool EnableNatsConsumers { get; init; } = Convert.ToBoolean(Environment.GetEnvironmentVariable("ENABLE_NATS_CONSUMERS") ?? "False");
 
     /// <summary>
+    /// Gets a value indicating whether database migrations should run when a migrations directory is present.
+    /// </summary>
+    public bool EnableMigrations { get; init; } = Convert.ToBoolean(Environment.GetEnvironmentVariable("ENABLE_MIGRATIONS") ?? "True");
+
+    /// <summary>
     /// Gets a value indicating whether REST endpoints should run.
     /// </summary>
     public bool EnableRestEndpoints { get; init; } = Convert.ToBoolean(Environment.GetEnvironmentVariable("ENABLE_REST_ENDPOINTS") ?? "True");

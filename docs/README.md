@@ -35,18 +35,19 @@ Before diving in, it's recommended that you:
 - **7. 🎮 [Controllers](./controllers.md)**
 - **8. 🔧 [Services](./services.md)**
 - **9. 💾 [Making SQL Database Calls](./db.md)**
-- **10. 🐯 [TigerBeetle Ledger Database](./tigerbeetle.md)**
-- **11. 🌐 [Invoking other services](./api.calls.md)**
-- **12. 🌎 [Lightweight REST Endpoints](./rest.md)**
-- **13. 🧪 [Manually Testing Microservices on local](./testing.md)**
-- **14. 📊 Observability**
-  - **14.1. 📝 [Logging](./logging.md)**
-  - **14.2. 📈 [Metrics](./metrics.md)**
-  - **14.3. 🔍 Tracing (WIP)**
-- **15. 🚩 Feature Flagging (WIP)**
-- **16. 🗄️ NimbusDb (WIP)**
-- **17. ⏰ Background Jobs(WIP)**
-- **18. 🔒 [Distributed Locks](./distributed-locks.md)**
-- **19. 🔐 Decentralized JWT Auth for UI**
-- **20. 💨 [Caching](./caching.md)**
-- **21. 🧭 [Additional Setup](./additional-setup.md)**
+- **10. 🧱 [Database Migrations](./migrations.md)**
+- **11. 🐯 [TigerBeetle Ledger Database](./tigerbeetle.md)**
+- **12. 🌐 [Invoking other services](./api.calls.md)**
+- **13. 🌎 [Lightweight REST Endpoints](./rest.md)**
+- **14. 🧪 [Manually Testing Microservices on local](./testing.md)**
+- **15. 📊 Observability**
+  - **15.1. 📝 [Logging](./logging.md)**
+  - **15.2. 📈 [Metrics](./metrics.md)**
+  - **15.3. 🔍 Tracing (WIP)**
+- **16. 🚩 Feature Flagging (WIP)**
+- **17. 🗄️ NimbusDb (WIP)**
+- **18. ⏰ Background Jobs(WIP)**
+- **19. 🔒 [Distributed Locks](./distributed-locks.md)**
+- **20. 🔐 Decentralized JWT Auth for UI**
+- **21. 💨 [Caching](./caching.md)**
+- **22. 🧭 [Additional Setup](./additional-setup.md)**
