@@ -12,6 +12,7 @@ let's assume your main namespace is `cloops.app1`
 - All traditional services should be in namespace `cloops.app1.services`
 - All http services should be in namespace `cloops.app1.services.http`
 - All background services should be in namespace `cloops.app1.services.background`
+- All lightweight REST endpoint classes should be in namespace `cloops.app1.rest`
 
 If you need further organization you need to add it before the namespace suffix part. e.g. `cloops.app1.BnR.services` or `cloops.app1.orders.controllers`. `cloops.microservices` matches against "ends with".
 
@@ -26,6 +27,8 @@ This is not mandatory. But, we recommend below file structure to cleanly organiz
 - src
   - Controllers
     - *.cs                          All controllers (NATS message handlers with [NatsConsumer] attributes)
+  - Rest
+    - *.cs                          All lightweight REST endpoint classes with [RestEndpoint] attributes
   - Services
     - http
         - *.cs                      All services with managed http client for outbound 3P API calls.
@@ -52,6 +55,8 @@ await app.RunAsync();
 ```
 
 This sets up the application, registers all controllers and services, connects to NATS and starts your consumers and background services and everything else you have in your app.
+
+Controllers and HTTP services are long-lived singleton services. If an HTTP service is used by a NATS consumer, inject `IHttpClientFactory` or inherit from `BaseHttpService` and create a client inside each outbound method call. See [Making Third-Party API Calls](./api.calls.md) for the recommended pattern.
 
 ## Accessing a service
 

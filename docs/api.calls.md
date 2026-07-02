@@ -44,35 +44,46 @@ Is the service built with cloops.microservices?
 
 ## Making HTTP API Calls
 
-HTTP services provide a managed `HttpClient` instance that prevents port exhaustion and follows best practices for HTTP client usage.
+HTTP services are singleton-friendly wrappers around `IHttpClientFactory`. Use them for outbound calls to third-party HTTP APIs. The framework registers HTTP services automatically, and the recommended service implementation creates a fresh logical `HttpClient` for each outbound operation through the factory.
+
+This follows Microsoft's `IHttpClientFactory` guidance: [HTTP requests with IHttpClientFactory - basic usage](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/http-requests?view=aspnetcore-10.0#basic-usage).
+
+> NATS consumers/controllers are singletons. Do not store one injected `HttpClient` in a controller or HTTP service and reuse it forever. Store `IHttpClientFactory` instead, or inherit from `BaseHttpService`, and create a client inside each method call.
 
 ### Creating an HTTP Service
 
 To create an HTTP service:
 
 1. **Create a class in a namespace ending with `Services.Http`**
-2. **Inject `HttpClient` in the constructor**
-3. **Configure the client** (base URL, headers, etc.) in the constructor
+2. **Inherit from `BaseHttpService` or inject `IHttpClientFactory`**
+3. **Create a client inside each outbound method call**
+4. **Customize the client by overriding `ConfigureClient` or `CreateClient`**
 
 **Example:**
 
 ```csharp
 using System.Net.Http;
+using CLOOPS.microservices;
+using Microsoft.Extensions.Logging;
 
 namespace myapp.services.http;
 
-public class WeatherService
+public class WeatherService : BaseHttpService
 {
-    private readonly HttpClient _httpClient;
+    private readonly ILogger<WeatherService> _logger;
 
-    public WeatherService(HttpClient httpClient)
+    public WeatherService(
+        IHttpClientFactory httpClientFactory,
+        ILogger<WeatherService> logger) : base(httpClientFactory, logger)
     {
-        _httpClient = httpClient;
+        _logger = logger;
+    }
 
-        // Configure the client
-        _httpClient.BaseAddress = new Uri("https://api.weather.com/");
-        _httpClient.DefaultRequestHeaders.Add("X-API-Key", "your-api-key");
-        _httpClient.Timeout = TimeSpan.FromSeconds(30);
+    protected override void ConfigureClient(HttpClient client)
+    {
+        client.BaseAddress = new Uri("https://api.weather.com/");
+        client.DefaultRequestHeaders.Add("X-API-Key", "your-api-key");
+        client.Timeout = TimeSpan.FromSeconds(30);
     }
 }
 ```
@@ -84,24 +95,28 @@ Here's a complete example of making an HTTP GET request:
 ```csharp
 namespace myapp.services.http;
 
-public class WeatherService
+public class WeatherService : BaseHttpService
 {
-    private readonly HttpClient _httpClient;
     private readonly ILogger<WeatherService> _logger;
 
-    public WeatherService(HttpClient httpClient, ILogger<WeatherService> logger)
+    public WeatherService(
+        IHttpClientFactory httpClientFactory,
+        ILogger<WeatherService> logger) : base(httpClientFactory, logger)
     {
-        _httpClient = httpClient;
         _logger = logger;
+    }
 
-        _httpClient.BaseAddress = new Uri("https://api.weather.com/v1/");
+    protected override void ConfigureClient(HttpClient client)
+    {
+        client.BaseAddress = new Uri("https://api.weather.com/v1/");
     }
 
     public async Task<WeatherData?> GetWeatherAsync(string city, CancellationToken ct = default)
     {
         try
         {
-            var response = await _httpClient.GetAsync($"weather?city={city}", ct);
+            using var httpClient = CreateClient();
+            using var response = await httpClient.GetAsync($"weather?city={city}", ct);
 
             if (response.IsSuccessStatusCode)
             {
@@ -140,10 +155,11 @@ public async Task<bool> CreateUserAsync(User user, CancellationToken ct = defaul
 {
     try
     {
+        using var httpClient = CreateClient();
         var json = Util.Serialize(user);
         var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
 
-        var response = await _httpClient.PostAsync("users", content, ct);
+        using var response = await httpClient.PostAsync("users", content, ct);
 
         return response.IsSuccessStatusCode;
     }
@@ -164,7 +180,8 @@ public async Task<ApiResult<T>> GetDataAsync<T>(string endpoint, CancellationTok
 {
     try
     {
-        var response = await _httpClient.GetAsync(endpoint, ct);
+        using var httpClient = CreateClient();
+        using var response = await httpClient.GetAsync(endpoint, ct);
 
         if (response.IsSuccessStatusCode)
         {
@@ -218,7 +235,8 @@ public async Task<string?> FetchDataAsync(string url, CancellationToken ct = def
 {
     try
     {
-        var response = await _httpClient.GetAsync(url, ct);
+        using var httpClient = CreateClient();
+        using var response = await httpClient.GetAsync(url, ct);
         response.EnsureSuccessStatusCode(); // Throws if status code is not success
         return await response.Content.ReadAsStringAsync(ct);
     }
@@ -531,13 +549,15 @@ public class OrderProcessingService
 
 1. **One HTTP service per external API service**: Create separate services for different third-party API applications (e.g., `GitHubService`, `AzureService`, `StripeService`)
 
-2. **Configure HttpClient in constructor**: Set base URLs, default headers, and timeouts in the constructor
+2. **Create clients per outbound call**: NATS consumers are singleton, so create a client from `IHttpClientFactory` or `BaseHttpService.CreateClient()` inside each method call
 
-3. **Always handle errors**: Wrap HTTP calls in try-catch blocks to handle network failures
+3. **Customize clients in one place**: Override `ConfigureClient` for base URLs, headers, and timeouts, or override `CreateClient` for advanced behavior
 
-4. **Use cancellation tokens**: Always pass `CancellationToken` to async HTTP methods
+4. **Always handle errors**: Wrap HTTP calls in try-catch blocks to handle network failures
 
-5. **Don't create HttpClient manually**: Always use dependency injection to get `HttpClient` instances
+5. **Use cancellation tokens**: Always pass `CancellationToken` to async HTTP methods
+
+6. **Don't create HttpClient manually with `new`**: Always use `IHttpClientFactory` directly or through `BaseHttpService`
 
 ### NATS Subject Builders
 

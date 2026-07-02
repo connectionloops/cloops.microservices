@@ -1,5 +1,7 @@
 # TigerBeetle
 
+Part of [Data Persistence](./data-persistence.md).
+
 TigerBeetle is available in `cloops.microservices` for services that need a high-performance financial accounting database. The SDK registers the upstream .NET `TigerBeetle.Client` in dependency injection when TigerBeetle configuration is provided.
 
 Use TigerBeetle for ledger-shaped workloads: account balances, money movement, credits and debits, double-entry accounting, transfers, pending transfers, idempotent transaction submission, and audit-friendly financial event histories. For general relational queries, reporting, joins, and application data that does not need ledger semantics, use the SQL `IDB` helper described in [Making Database Calls](./db.md).

@@ -1,8 +1,9 @@
 using System.Linq;
-using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Reflection;
+using CLOOPS.microservices.Readyz;
 using CLOOPS.NATS;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -19,7 +20,7 @@ namespace CLOOPS.microservices;
 /// <summary>
 /// Coordinates dependency injection setup and application startup.
 /// </summary>
-public class App
+public partial class App
 {
     /// <summary>
     /// The application settings
@@ -28,22 +29,30 @@ public class App
     /// <summary>
     /// The host application builder
     /// </summary>
-    public HostApplicationBuilder builder;
+    public WebApplicationBuilder builder;
 
     /// <summary>
     /// The host application
     /// </summary>
-    public IHost? host;
+    public WebApplication? host;
+
+    /// <summary>
+    /// Stores all the types in the assembly for faster startup.
+    /// </summary>
+    private Type[]? cachedTargetTypes;
 
     /// <summary>
     /// Creates the DI pipeline and starts the application.
     /// </summary>
-    /// <param name="introMessageProvider">Optional function that takes BaseAppSettings and returns a custom intro message. If not provided, a default message will be used.</param>
-    public App(Func<BaseAppSettings, string>? introMessageProvider = null)
+    /// <param name="introMessageProvider">Optional function that takes BaseAppSettings and WebApplicationBuilder and returns a custom intro message. If not provided, a default message will be used.</param>
+    public App(Func<BaseAppSettings, WebApplicationBuilder, string>? introMessageProvider = null)
     {
         appSettings = new BaseAppSettings();
+        ConfigureThreadPool();
+        builder = WebApplication.CreateSlimBuilder();
+        ConfigureRestListener();
         string introMessage = introMessageProvider != null
-            ? introMessageProvider(appSettings)
+            ? introMessageProvider(appSettings, builder)
             : $@"
              _____                            _   _               _                           
             / ____|                          | | (_)             | |                          
@@ -58,6 +67,7 @@ public class App
             ╩ ╩┴└─┘┴└─└─┘└─┘└─┘┴└─ └┘ ┴└─┘└─┘└─┘
 
             App:                     {appSettings.AssemblyName}
+            Env:                     {builder.Environment.EnvironmentName}
             NATS URL:                {appSettings.NatsURL}
             TB Addresses:            {appSettings.TigerBeetleAddresses}
             TB Cluster ID:           {appSettings.TigerBeetleClusterId}
@@ -67,22 +77,18 @@ public class App
         ";
         Console.WriteLine(introMessage);
         Console.WriteLine("Boostrapping app...");
-        ConfigureThreadPool();
-        builder = Host.CreateApplicationBuilder();
+
+        ConfigureLogger();
+        Log.Information("✅ Configured Serilog");
 
         // add singleton services
         builder.Services.AddSingleton(appSettings);
-        Console.WriteLine("Mapped AppSettings");
-
-        ConfigureLogger();
-        Console.WriteLine("Configured Serilog");
-
-        ConfigureTigerBeetle(appSettings);
+        Log.Information("✅ Mapped AppSettings");
 
         if (!string.IsNullOrEmpty(appSettings.ConnectionString))
         {
             builder.Services.AddSingleton<IDB>(new DB(appSettings.ConnectionString));
-            Console.WriteLine("Configured DB");
+            Log.Information("✅ Configured DB");
         }
 
         if (!string.IsNullOrEmpty(appSettings.NatsURL))
@@ -95,16 +101,25 @@ public class App
             builder.Services.AddSingleton<ICloopsNatsClient>(cnc);
             builder.Services.AddHostedService<NatsLifecycleService>();
             builder.Services.AddSingleton<INatsMetricsService, NatsMetricsService>();
-            Console.WriteLine("Configured NATS Client, Lifecycle Service, and Metrics Service");
+            Log.Information("✅ Configured NATS Client, Lifecycle Service, and Metrics Service");
         }
 
         ConfigureOTEL();
-        Console.WriteLine("Configured OpenTelemetry");
+        ConfigureCaching();
 
         RegisterControllers();
         RegisterServices();
-        RegisterBackgroundServices();
+        RegisterRestEndpoints();
         RegisterHttpServices();
+        // Hosted services start in registration order. NATS is registered above so
+        // migrations can acquire a distributed lock before caches/background jobs run.
+        builder.Services.AddHostedService<DbMigrationHostedService>();
+        Log.Information("✅ Registered DB migration hosted service");
+        ConfigureTigerBeetle(appSettings);
+        // Cache services must register before background services so that hosted-service
+        // start order is: NATS → migrations → TigerBeetle/cache (incl. optional blocking startup hydration) → background jobs.
+        RegisterCacheServices();
+        RegisterBackgroundServices();
     }
 
     /// <summary>
@@ -116,23 +131,19 @@ public class App
     {
         // build it
         host = builder.Build();
+        MapRestEndpoints(host);
         return host.RunAsync();
     }
 
     private void RegisterControllers()
     {
-        var targetAssembly = ResolveTargetAssembly();
-
-        var controllerTypes = targetAssembly
-            .GetTypes()
-            .Where(t => t.IsClass && !t.IsAbstract && !t.IsNested)
+        var controllerTypes = GetTargetTypes()
             .Where(t =>
             {
                 var ns = t.Namespace;
                 return !string.IsNullOrEmpty(ns) &&
                        ns.EndsWith("Controllers", StringComparison.OrdinalIgnoreCase);
             })
-            .Where(t => !t.IsDefined(typeof(CompilerGeneratedAttribute), inherit: false))
             .ToArray();
 
         foreach (var controllerType in controllerTypes)
@@ -141,24 +152,20 @@ public class App
             if (interfaceType != null)
             {
                 builder.Services.AddSingleton(interfaceType, controllerType);
-                Console.WriteLine($"Registered controller: {interfaceType.Name} -> {controllerType.Name}");
+                Log.Information("✅ Registered controller: {InterfaceName} -> {ControllerName}", interfaceType.Name, controllerType.Name);
             }
             else
             {
                 // Fallback: register concrete type if no interface found
                 builder.Services.AddSingleton(controllerType);
-                Console.WriteLine($"Registered controller (no interface): {controllerType.Name}");
+                Log.Information("✅ Registered controller (no interface): {ControllerName}", controllerType.Name);
             }
         }
     }
 
     private void RegisterServices()
     {
-        var targetAssembly = ResolveTargetAssembly();
-
-        var serviceTypes = targetAssembly
-            .GetTypes()
-            .Where(t => t.IsClass && !t.IsAbstract && !t.IsNested)
+        var serviceTypes = GetTargetTypes()
             .Where(t =>
             {
                 var ns = t.Namespace;
@@ -172,7 +179,6 @@ public class App
                 var endsWithHttp = ns.EndsWith("Services.Http", StringComparison.OrdinalIgnoreCase);
                 return endsWithServices && !endsWithBackground && !endsWithHttp;
             })
-            .Where(t => !t.IsDefined(typeof(CompilerGeneratedAttribute), inherit: false))
             .ToArray();
 
         foreach (var serviceType in serviceTypes)
@@ -181,13 +187,13 @@ public class App
             if (interfaceType != null)
             {
                 builder.Services.AddSingleton(interfaceType, serviceType);
-                Console.WriteLine($"Registered service: {interfaceType.Name} -> {serviceType.Name}");
+                Log.Information("✅ Registered service: {InterfaceName} -> {ServiceName}", interfaceType.Name, serviceType.Name);
             }
             else
             {
                 // Fallback: register concrete type if no interface found
                 builder.Services.AddSingleton(serviceType);
-                Console.WriteLine($"Registered service (no interface): {serviceType.Name}");
+                Log.Information("✅ Registered service (no interface): {ServiceName}", serviceType.Name);
             }
         }
     }
@@ -218,16 +224,7 @@ public class App
 
     private void RegisterBackgroundServices()
     {
-        var targetAssembly = ResolveTargetAssembly();
-        if (targetAssembly == null)
-        {
-            Console.WriteLine("No assembly found for background service registration.");
-            return;
-        }
-
-        var backgroundServiceTypes = targetAssembly
-            .GetTypes()
-            .Where(t => t.IsClass && !t.IsAbstract && !t.IsNested)
+        var backgroundServiceTypes = GetTargetTypes()
             .Where(t =>
             {
                 var ns = t.Namespace;
@@ -235,76 +232,54 @@ public class App
                        ns.EndsWith("Services.Background", StringComparison.OrdinalIgnoreCase);
             })
             .Where(t => typeof(IHostedService).IsAssignableFrom(t))
-            .Where(t => !t.IsDefined(typeof(CompilerGeneratedAttribute), inherit: false))
             .ToArray();
 
         foreach (var backgroundServiceType in backgroundServiceTypes)
         {
             builder.Services.AddSingleton(typeof(IHostedService), backgroundServiceType);
-            Console.WriteLine($"Registered background service: {backgroundServiceType.Name}");
+            Log.Information("✅ Registered background service: {BackgroundServiceName}", backgroundServiceType.Name);
         }
     }
 
     private void RegisterHttpServices()
     {
-        var targetAssembly = ResolveTargetAssembly();
+        builder.Services.AddHttpClient();
 
-        var httpClientExtensionsType = Type.GetType("Microsoft.Extensions.DependencyInjection.HttpClientFactoryServiceCollectionExtensions, Microsoft.Extensions.Http");
-        if (httpClientExtensionsType == null)
-        {
-            Console.WriteLine("HttpClientFactory extensions not found. Skipping HTTP service registration.");
-            return;
-        }
-        var addHttpClientGenericMethod = httpClientExtensionsType
-            .GetMethods(BindingFlags.Public | BindingFlags.Static)
-            .FirstOrDefault(m =>
-                m.Name == "AddHttpClient" &&
-                m.IsGenericMethodDefinition &&
-                m.GetParameters().Length == 1);
-
-        if (addHttpClientGenericMethod == null)
-        {
-            Console.WriteLine("AddHttpClient generic method not available. Skipping HTTP service registration.");
-            return;
-        }
-
-        var httpServiceTypes = targetAssembly
-            .GetTypes()
-            .Where(t => t.IsClass && !t.IsAbstract && !t.IsNested)
-            .Where(t =>
-            {
-                var ns = t.Namespace;
-                return !string.IsNullOrEmpty(ns) &&
-                       ns.EndsWith("Services.Http", StringComparison.OrdinalIgnoreCase);
-            })
-            .Where(t => !t.IsDefined(typeof(CompilerGeneratedAttribute), inherit: false))
+        var httpServiceTypes = GetTargetTypes()
+            .Where(t => typeof(BaseHttpService).IsAssignableFrom(t))
             .ToArray();
 
         foreach (var httpServiceType in httpServiceTypes)
         {
-            try
+            var interfaceType = FindInterface(httpServiceType);
+            if (interfaceType != null)
             {
-                // Always register HttpClient for the concrete type (required for HTTP services)
-                var typedAddHttpClient = addHttpClientGenericMethod.MakeGenericMethod(httpServiceType);
-                typedAddHttpClient.Invoke(null, [builder.Services]);
-
-                // Also register with custom interface if it exists
-                var interfaceType = FindInterface(httpServiceType);
-                if (interfaceType != null)
-                {
-                    builder.Services.AddSingleton(interfaceType, httpServiceType);
-                    Console.WriteLine($"Registered HTTP service: {interfaceType.Name} -> {httpServiceType.Name}");
-                }
-                else
-                {
-                    Console.WriteLine($"Registered HTTP service: {httpServiceType.Name}");
-                }
+                builder.Services.AddSingleton(interfaceType, httpServiceType);
+                Log.Information("✅ Registered HTTP service: {InterfaceName} -> {HttpServiceName}", interfaceType.Name, httpServiceType.Name);
             }
-            catch (Exception ex)
+            else
             {
-                Console.WriteLine($"Failed to register HTTP service {httpServiceType.Name}: {ex.InnerException?.Message ?? ex.Message}");
+                builder.Services.AddSingleton(httpServiceType);
+                Log.Information("✅ Registered HTTP service (no interface): {HttpServiceName}", httpServiceType.Name);
             }
         }
+    }
+
+    private Type[] GetTargetTypes()
+    {
+        if (cachedTargetTypes != null)
+        {
+            return cachedTargetTypes;
+        }
+
+        var targetAssembly = ResolveTargetAssembly();
+        cachedTargetTypes = targetAssembly
+            .GetTypes()
+            .Where(t => t.IsClass && !t.IsAbstract && !t.IsNested)
+            .Where(t => !t.IsDefined(typeof(CompilerGeneratedAttribute), inherit: false))
+            .ToArray();
+
+        return cachedTargetTypes;
     }
 
     private Assembly ResolveTargetAssembly()
@@ -320,7 +295,7 @@ public class App
 
         if (targetAssembly == null)
         {
-            Console.WriteLine("No assembly found for registration.");
+            Log.Error("❌ No assembly found for registration");
             throw new Exception("No assembly found for registration.");
         }
         return targetAssembly;
@@ -439,6 +414,7 @@ public class App
                     });
                 }
             });
+        Log.Information("✅ Configured OpenTelemetry");
     }
 
     /// <summary>
@@ -448,7 +424,7 @@ public class App
     {
         if (String.IsNullOrWhiteSpace(appSettings.TigerBeetleAddresses))
         {
-            Console.WriteLine("No TigerBeetle Database Configured");
+            Log.Information("ℹ️ No TigerBeetle database configured");
             return;
         }
 
@@ -457,13 +433,21 @@ public class App
 
         if (addresses.Length == 0)
         {
-            Console.WriteLine("No valid TigerBeetle addresses configured");
+            Log.Warning("⚠️ No valid TigerBeetle addresses configured");
             return;
         }
 
         builder.Services.AddSingleton(_ =>
             new TigerBeetle.Client(appSettings.TigerBeetleClusterId, addresses));
 
-        Console.WriteLine("Configured TigerBeetle Client");
+        Log.Information("✅ Configured TigerBeetle client");
+
+        // Register the L1-only readiness cache so /readyz reads a cached probe result
+        // instead of hitting TigerBeetle on every request.
+        builder.Services.AddSingleton<TigerBeetleReadinessCacheService>();
+        builder.Services.AddSingleton<IHostedService>(sp =>
+            sp.GetRequiredService<TigerBeetleReadinessCacheService>());
+        Log.Information("✅ Registered TigerBeetle readiness cache (L1-only, 5m TTL, 4m refresh)");
     }
+
 }

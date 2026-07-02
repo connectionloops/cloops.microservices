@@ -48,9 +48,39 @@ public class BaseAppSettings
     public string ConnectionString { get; init; } = Environment.GetEnvironmentVariable("CNSTR") ?? "";
 
     /// <summary>
+    /// Gets the Redis connection string used by distributed caching.
+    /// </summary>
+    public string RedisConnectionString { get; init; } = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING") ?? "";
+
+    /// <summary>
+    /// Gets the optional Redis instance name prefix used by distributed caching.
+    /// </summary>
+    public string RedisInstanceName { get; init; } = Environment.GetEnvironmentVariable("REDIS_INSTANCE_NAME") ?? "";
+
+    /// <summary>
     /// Gets a value indicating whether NATS consumers should run.
     /// </summary>
     public bool EnableNatsConsumers { get; init; } = Convert.ToBoolean(Environment.GetEnvironmentVariable("ENABLE_NATS_CONSUMERS") ?? "False");
+
+    /// <summary>
+    /// Gets a value indicating whether database migrations should run when a migrations directory is present.
+    /// </summary>
+    public bool EnableMigrations { get; init; } = Convert.ToBoolean(Environment.GetEnvironmentVariable("ENABLE_MIGRATIONS") ?? "True");
+
+    /// <summary>
+    /// Gets a value indicating whether REST endpoints should run.
+    /// </summary>
+    public bool EnableRestEndpoints { get; init; } = Convert.ToBoolean(Environment.GetEnvironmentVariable("ENABLE_REST_ENDPOINTS") ?? "True");
+
+    /// <summary>
+    /// Gets the port used by the lightweight REST endpoint server.
+    /// </summary>
+    public int RestPort { get; init; } = int.TryParse(Environment.GetEnvironmentVariable("REST_PORT"), out var restPort) ? restPort : 8080;
+
+    /// <summary>
+    /// Gets the shared secret required by REST endpoints marked as auth-required.
+    /// </summary>
+    public string RestApiSecret { get; init; } = Environment.GetEnvironmentVariable("REST_API_SECRET") ?? "";
 
     /// <summary>
     /// Gets the comma-separated TigerBeetle address list. e.g. 127.0.0.1:3000,127.0.0.1:3001
