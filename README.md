@@ -42,3 +42,12 @@ Comprehensive guides available in the [docs](/docs) directory.
 For data persistence, see [SQL database operations](/docs/db.md) and [TigerBeetle ledger database usage](/docs/tigerbeetle.md).
 
 > This SDK is built on [cloops.nats](https://github.com/connectionloops/cloops.nats), which provides annotation-based consumer definitions and foundational features.
+
+## Agent Skill
+
+Install agent skill with 
+
+```shell
+npx skills add connectionloops/cloops.microservices --skill cloops-microservices
+```
+
