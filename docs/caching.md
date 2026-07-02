@@ -162,14 +162,14 @@ Each cache service must:
 
 `BaseCacheService<TValue>` exposes:
 
-| Method                                      | Behavior                                                                                                                                |
-| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `GetAsync(key, ct)`                         | Reads L1 → L2 → `HydrateSingleAsync`. Returns `null` when the source of truth has no value (and caches that absence per `L2Ttl`).       |
-| `GetAsync(key, CacheGetOptions, ct)`        | Same as above, but accepts per-call TTL overrides (`L1Ttl`, `L2Ttl`) for this single lookup. Useful for "this entry is volatile" cases. |
-| `GetRequiredAsync(key, ct)`                 | Returns the value or throws `KeyNotFoundException` if the source reports it as absent. Use only when absence is an error.               |
-| `SetAsync(key, value, ct)`                  | Writes a value to L1 and L2.                                                                                                            |
-| `RemoveAsync(key, ct)`                      | Removes one value from L1 and L2.                                                                                                       |
-| `RefreshAllAsync(retries, throwOnFail, ct)` | Bulk-hydrates from the source of truth under a NATS distributed lock. See _Startup and refresh flow_ below.                             |
+| Method                                      | Behavior                                                                                                                                                                                                                        |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GetAsync(key, ct)`                         | Reads L1 → L2 → `HydrateSingleAsync`. Returns `null` when the source of truth has no value (and caches that absence per `L2Ttl`).                                                                                               |
+| `GetAsync(key, CacheGetOptions, ct)`        | Same as above, but accepts per-call TTL overrides (`L1Ttl`, `L2Ttl`) when the key is populated on a cache miss. See [Per-call TTL overrides](#per-call-ttl-overrides) for when to use this instead of changing `[CacheConfig]`. |
+| `GetRequiredAsync(key, ct)`                 | Returns the value or throws `KeyNotFoundException` if the source reports it as absent. Use only when absence is an error.                                                                                                       |
+| `SetAsync(key, value, ct)`                  | Writes a value to L1 and L2. Useful when you want to overwrite / update a value forcefully.                                                                                                                                     |
+| `RemoveAsync(key, ct)`                      | Removes one value from L1 and L2.                                                                                                                                                                                               |
+| `RefreshAllAsync(retries, throwOnFail, ct)` | Bulk-hydrates from the source of truth under a NATS distributed lock. See _Startup and refresh flow_ below.                                                                                                                     |
 
 ### Nullability and "not found"
 
@@ -185,13 +185,39 @@ Prefer reference types or nullable value types for cache values that need an exp
 
 ### Per-call TTL overrides
 
-Some entries within a cache are more volatile than others (e.g. a record in a `pending` state vs. a stable record). Pass a `CacheGetOptions` to shorten TTL for that single lookup:
+Use `GetAsync(key, CacheGetOptions, ct)` when **one cache service** holds entries with **different freshness requirements**, and you want the caller (or hydration path) to pick TTL per key without splitting into multiple cache types or changing the global `[CacheConfig]` defaults.
+
+Overrides apply only when HybridCache **stores** the entry — on an L1/L2 miss that runs `HydrateSingleAsync`. If the key is already cached (including under the service's default TTLs from an earlier `GetAsync(key, ct)`), a later call with custom options returns the existing value until that entry expires naturally. Custom TTLs do **not** retroactively shorten or extend an entry that is already warm.
+
+You can override `L1Ttl`, `L2Ttl`, or both. Any property left `null` falls back to the cache service's configured default for that layer.
+
+**Good fits**
+
+| Scenario                            | Why per-call TTL helps                                                                                                                                                            |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Mixed volatility in one dataset** | Most patients are stable (keep default 5m/1h), but in-flight edits need a shorter window — e.g. `pending` orders cached for 15s L1 / 1m L2 while `shipped` orders use defaults.   |
+| **Caller-specific freshness**       | A live status widget calls with short TTLs; a batch export on the same cache interface calls with defaults because minute-level staleness is acceptable.                          |
+| **Expensive hydration, rare reads** | A key is read infrequently and hydration is costly — optionally pass _longer_ TTLs for that one lookup so the next read within hours stays in L2 without hitting SQL.             |
+| **Probing / existence checks**      | A "does this id exist yet?" poll can use a very short L1 TTL so repeated polls on one pod don't hammer the source, without tightening TTLs for every other consumer of the cache. |
+
+**Prefer something else when**
+
+- **Every key** in the cache should be fresher → lower `l1Ttl` / `l2Ttl` on `[CacheConfig]`, or tighten `RefreshCron`, instead of passing options on every call.
+- **You know the source changed** (update, delete, webhook) → call `RemoveAsync(key, ct)` (or `SetAsync`) so all pods see the change promptly. Shorter TTL is a _probabilistic_ freshness bound, not invalidation.
+- **The same key is read with conflicting TTLs** from different code paths → whichever population wins first sets TTL until expiry; the other path does not re-apply its options on a hit. Split caches, use explicit invalidation, or route volatile keys through a dedicated code path that always uses the stricter TTL.
+
+Example: shorten TTL only when the caller knows the entity is in a volatile state (often after a lightweight status read or message metadata):
 
 ```csharp
-var pendingOrder = await orders.GetAsync(
-    orderId,
-    new CacheGetOptions { L1Ttl = TimeSpan.FromSeconds(15), L2Ttl = TimeSpan.FromMinutes(1) },
-    ct);
+var order = await orders.GetAsync(orderId, ct);
+if (order?.Status == OrderStatus.Pending)
+{
+    // Re-fetch with tighter bounds on miss; if still within a prior default-TTL entry, RemoveAsync first.
+    order = await orders.GetAsync(
+        orderId,
+        new CacheGetOptions { L1Ttl = TimeSpan.FromSeconds(15), L2Ttl = TimeSpan.FromMinutes(1) },
+        ct);
+}
 ```
 
 When `CacheGetOptions` is `null` (or both TTLs are `null`), the cache service's default TTLs are used and no per-call options object is allocated.
@@ -250,6 +276,8 @@ Startup also does not eagerly warm L1 from L2. After a pod restart, L1 is repopu
 - The cache service must override `HydrateAllAsync` (validated at startup).
 - The cache service **blocks** its `StartAsync` until hydration completes (or returns early because another instance holds the refresh lock).
 - The SDK waits up to 60 seconds for a configured NATS client to connect before attempting the distributed lock. If no NATS client is registered, refresh runs without a distributed lock and logs a warning.
+
+> **Warning — multi-pod deployments:** Every pod runs startup refresh during `StartAsync`. With L2 enabled and NATS configured, only one pod hydrates at a time (others skip when the distributed lock is held), but during a **rolling restart** pods that start sequentially can each acquire the lock in turn — potentially one `HydrateAllAsync` per pod. Without NATS, or with L1-only caches (`EnableL2 = false`), **every pod hydrates independently** on every startup. Be cautious enabling this for apps that run multiple replicas; prefer the default (`RefreshOnStartup = false`) and rely on L2 + on-demand L1 promotion unless you have a specific cold-start need.
 
 ASP.NET Core arranges `IHostedService` startup so that **all user-registered hosted services run before `GenericWebHostService` (Kestrel) binds to its port** (see [PR dotnet/aspnetcore#36122](https://github.com/dotnet/aspnetcore/pull/36122)). The practical consequence: while a cache is hydrating during `StartAsync`, Kestrel is not yet listening, so external probes get TCP "connection refused" and Kubernetes will not route traffic to the pod. The SDK does not perform an explicit cache-readiness check in `/readyz`; cache startup readiness happens out of the box through hosted-service startup ordering.
 

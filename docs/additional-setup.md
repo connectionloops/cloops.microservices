@@ -88,8 +88,7 @@ Generally, these setup tasks are:
 
 - **[Application Configuration](./config.md)**: How to configure your microservice
 - **[NATS Consumers](./consumer.md)**: How to define consumers in your application code
-- **[SQL Database Operations](./db.md)**: How to use SQL Server within your microservice
-- **[TigerBeetle](./tigerbeetle.md)**: How to use TigerBeetle for ledger and accounting workloads
+- **[Data Persistence](./data-persistence.md)**: SQL Server, TigerBeetle, and other storage backends
 
 ---
 

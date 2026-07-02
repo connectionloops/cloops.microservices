@@ -11,7 +11,8 @@ This documentation is designed to guide you through building microservices with 
 - 🚀 **Getting Started**: Installation and setup instructions
 - 🔧 **Core Concepts**: Dependency injection, configuration, controller and service registration
 - 📡 **NATS Integration**: Building controllers with consumers and implementing request-reply or publish-subscribe patterns
-- 💾 **Data & Communication**: SQL database operations, TigerBeetle ledger operations, and inter-service communication
+- 💾 **Data Persistence**: SQL Server, TigerBeetle, and other storage backends for relational, searchable, and transactional workloads
+- 🌐 **Communication**: Inter-service calls and lightweight REST endpoints
 - ⚡ **Advanced Features**: Distributed locking, observability, and more
 
 ### Prerequisites
@@ -34,20 +35,27 @@ Before diving in, it's recommended that you:
 - **6. 🛠️ [Utility Functions](./util.md)**
 - **7. 🎮 [Controllers](./controllers.md)**
 - **8. 🔧 [Services](./services.md)**
-- **9. 💾 [Making SQL Database Calls](./db.md)**
-- **10. 🧱 [Database Migrations](./migrations.md)**
-- **11. 🐯 [TigerBeetle Ledger Database](./tigerbeetle.md)**
-- **12. 🌐 [Invoking other services](./api.calls.md)**
-- **13. 🌎 [Lightweight REST Endpoints](./rest.md)**
-- **14. 🧪 [Manually Testing Microservices on local](./testing.md)**
-- **15. 📊 Observability**
-  - **15.1. 📝 [Logging](./logging.md)**
-  - **15.2. 📈 [Metrics](./metrics.md)**
-  - **15.3. 🔍 Tracing (WIP)**
-- **16. 🚩 Feature Flagging (WIP)**
-- **17. 🗄️ NimbusDb (WIP)**
-- **18. ⏰ Background Jobs(WIP)**
-- **19. 🔒 [Distributed Locks](./distributed-locks.md)**
-- **20. 🔐 Decentralized JWT Auth for UI**
-- **21. 💨 [Caching](./caching.md)**
-- **22. 🧭 [Additional Setup](./additional-setup.md)**
+- **9. 💾 [Data Persistence](./data-persistence.md)**
+  - **9.1. 🗃️ [Microsoft SQL Server (relational)](./mssql.md)**
+    - **9.1.1. [Making SQL Database Calls](./db.md)**
+    - **9.1.2. [Database Migrations](./migrations.md)**
+  - **9.2. 🔍 [Manticore (searchable documents) (WIP)](./manticore.md)**
+  - **9.3. 🗄️ [NimbusDb (object store backed) (WIP)](./nimbusdb.md)**
+  - **9.4. 🐯 [TigerBeetle (transactional workloads)](./tigerbeetle.md)**
+  - **9.5. 📦 [NATS KV (WIP)](./kv.md)**
+  - **9.6. 📦 [MinIO (WIP)](./min-io.md)**
+- **10. 🌐 [Invoking other services](./api.calls.md)**
+- **11. 🌎 [Lightweight REST Endpoints](./rest.md)**
+- **12. 🧪 [Manually Testing Microservices on local](./testing.md)**
+- **13. 📊 Observability**
+  - **13.1. 📝 [Logging](./logging.md)**
+  - **13.2. 📈 [Metrics](./metrics.md)**
+  - **13.3. 🔍 Tracing (WIP)**
+- **14. 🚩 Feature Flagging (WIP)**
+- **15. [Background Processing](./background-processing.md)**
+  - **15.1 ⏰ [Background Jobs (cron based)](./background-jobs.md)**
+  - **15.2 [Work Queue (WIP)](./)**
+- **16. 🔒 [Distributed Locks](./distributed-locks.md)**
+- **17. 🔐 Decentralized JWT Auth for UI**
+- **18. 💨 [Caching](./caching.md)**
+- **19. 🧭 [Additional Setup](./additional-setup.md)**

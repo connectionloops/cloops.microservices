@@ -1,5 +1,7 @@
 # Making SQL Database Calls
 
+Part of [Microsoft SQL Server](./mssql.md) in [Data Persistence](./data-persistence.md).
+
 The `cloops.microservices` framework provides a `DB` class for executing SQL queries against SQL Server databases. The database operations support streaming results, parameterized queries, and flexible result mapping. It encourages writing raw sql queries for highest performance over using something like EntityFramework. It is highly performant and very lean.
 
 For ledger-shaped workloads such as balances, credits, debits, money movement, transfers, pending transfers, and financial transaction histories, use [TigerBeetle](./tigerbeetle.md). TigerBeetle is supported separately through the upstream `TigerBeetle.Client`, which the SDK registers in dependency injection when configured.
