@@ -35,6 +35,11 @@ Make sure the folder is copied to the build output so it sits at the same level 
 <ItemGroup>
   <Content Include="migrations/**/*.sql" CopyToOutputDirectory="PreserveNewest" />
 </ItemGroup>
+
+<!-- CopyToOutputDirectory never removes deleted source files from output. -->
+<Target Name="SyncMigrationsToOutput" BeforeTargets="CopyFilesToOutputDirectory">
+  <RemoveDir Directories="$(OutDir)migrations" Condition="Exists('$(OutDir)migrations')" />
+</Target>
 ```
 
 Configure the SQL Server connection string env variable in doppler. below is an example
