@@ -12,6 +12,7 @@ The framework automatically:
 - Provides dependency injection for your controllers and services
 - Manages queue groups for load balancing or broadcasting
 - Handles acknowledgments and error responses
+- Runs registered consumer interceptors before controller handlers
 
 You simply define controller classes with methods decorated with the `[NatsConsumer]` attribute, and the framework handles the rest.
 
@@ -125,6 +126,127 @@ The `NatsAck` class is used to acknowledge message processing:
 - `_isAck: true` - Acknowledges the message (success)
 - `_isAck: false` - Negatively acknowledges the message (failure, will be redelivered)
 - `_reply: replyObject` - Optional reply message to send back to the requester
+
+## Consumer Interceptors
+
+Consumer interceptors are platform-level hooks that run before a `[NatsConsumer]` handler receives a message. They are useful for cross-cutting workflows that apply to many consumers, such as AuthZ, tenant checks, request normalization, audit enrichment, and header validation.
+
+Interceptors are resolved from dependency injection and run in the same order they are registered. Each interceptor can inspect the typed `NatsMsg<T>`, subject, headers, raw body bytes, and handler metadata. It can also replace the payload or full message before the next interceptor and final handler run.
+
+If an interceptor rejects a message, the handler is not called.
+
+#### What happens on reject
+
+| Transport | Default reject behavior | Optional retry | Optional reply | What the requester gets |
+| --------- | ----------------------- | -------------- | -------------- | ----------------------- |
+| **JetStream (durable)** | Message is terminated (`AckTerminate`) so it is not redelivered | `Reject(..., shouldRetryDelivery: true)` sends a `Nak` | Ignored | JetStream rejection only affects delivery/ack semantics |
+| **Core NATS** | Message is discarded; handler never runs | `shouldRetryDelivery` is ignored (Core has no redelivery) | `Reject(..., reply: errorPayload)` | For request/reply with `reply`: requester receives that payload. Without `reply` (or no `ReplyTo`): nothing — requester times out on request/reply |
+
+For Core request/reply AuthZ failures, prefer rejecting with an explicit reply so callers get a typed error instead of a timeout:
+
+```cs
+return NatsConsumerInterceptorResult.Reject(
+    reason: $"User {userId} cannot register patients in location {msg.Data.LId}",
+    reply: new AuthzError
+    {
+        Code = "FORBIDDEN",
+        Message = "User is not allowed to register patients in this location"
+    });
+```
+
+`reply` is optional. Omit it for fire-and-forget / pub-sub subjects where no response is expected. Core message validation failures still drop silently with no reply (malformed payload is not treated as an intentional AuthZ response).
+
+### Register an Interceptor
+
+Register interceptors during application startup:
+
+```cs
+using CLOOPS.NATS;
+
+builder.Services.AddNatsConsumerInterceptor<LocationAuthorizationInterceptor>();
+```
+
+You can register multiple interceptors:
+
+```cs
+builder.Services.AddNatsConsumerInterceptor<AuthenticationInterceptor>();
+builder.Services.AddNatsConsumerInterceptor<LocationAuthorizationInterceptor>();
+builder.Services.AddNatsConsumerInterceptor<AuditEnvelopeInterceptor>();
+```
+
+These run in the registration order shown above.
+
+### AuthZ Example
+
+This interceptor checks whether the calling user can register a patient for the `l_id` present in the message body. It also demonstrates how an interceptor can modify the payload before the handler receives it.
+
+```cs
+using CLOOPS.NATS;
+using NATS.Client.Core;
+
+public sealed class LocationAuthorizationInterceptor : INatsConsumerInterceptor
+{
+    private readonly LocationAuthorizationService _authz;
+
+    public LocationAuthorizationInterceptor(LocationAuthorizationService authz)
+    {
+        _authz = authz;
+    }
+
+    public async ValueTask<NatsConsumerInterceptorResult> InterceptAsync(
+        NatsConsumerInterceptorContext context,
+        CancellationToken ct = default)
+    {
+        if (context.PayloadType != typeof(RegisterPatientRequest))
+            return NatsConsumerInterceptorResult.Continue();
+
+        var msg = context.GetMessage<RegisterPatientRequest>();
+        var userId = msg.Headers?["x-user-id"].FirstOrDefault();
+
+        if (string.IsNullOrWhiteSpace(userId) || msg.Data is null)
+            return NatsConsumerInterceptorResult.Reject(
+                reason: "Missing user or patient registration payload",
+                reply: new AuthzError { Code = "UNAUTHORIZED", Message = "Missing user or patient registration payload" });
+
+        var isAllowed = await _authz.CanRegisterPatientAsync(userId, msg.Data.LId, ct);
+        if (!isAllowed)
+            return NatsConsumerInterceptorResult.Reject(
+                reason: $"User {userId} cannot register patients in location {msg.Data.LId}",
+                reply: new AuthzError
+                {
+                    Code = "FORBIDDEN",
+                    Message = $"User {userId} cannot register patients in location {msg.Data.LId}"
+                });
+
+        var normalized = msg.Data with
+        {
+            LId = msg.Data.LId.Trim().ToUpperInvariant()
+        };
+
+        context.ReplaceData(normalized);
+        return NatsConsumerInterceptorResult.Continue();
+    }
+}
+
+public sealed record RegisterPatientRequest(string PatientId, string LId, string Name);
+
+public sealed class AuthzError
+{
+    public string Code { get; set; } = "";
+    public string Message { get; set; } = "";
+}
+```
+
+The consumer receives the normalized payload only if the interceptor authorizes it:
+
+```cs
+[NatsConsumer("patients.register")]
+public async Task<NatsAck> RegisterPatient(NatsMsg<RegisterPatientRequest> msg, CancellationToken ct = default)
+{
+    await _patientService.RegisterAsync(msg.Data!, ct);
+    return new NatsAck(true);
+}
+```
 
 ### Step 2: Understanding the Architecture
 
@@ -405,8 +527,9 @@ public class OrderService
 5. **Handle errors gracefully**: Return `new NatsAck(false)` for transient errors that should be retried
 6. **Use dependency injection**: Inject services, loggers, and settings through constructor injection
 7. **Keep services pure**: Services should work with pure C# objects, not NATS wrappers, making them testable and reusable
-8. **Log appropriately**: Use structured logging to track message processing
-9. **Respect cancellation tokens**: Use the `CancellationToken` parameter for graceful shutdown
+8. **Use consumer interceptors for cross-cutting checks**: Put shared AuthZ, tenant validation, and normalization in interceptors instead of duplicating it across many controllers
+9. **Log appropriately**: Use structured logging to track message processing
+10. **Respect cancellation tokens**: Use the `CancellationToken` parameter for graceful shutdown
 
 ## Next Steps
 
