@@ -11,7 +11,7 @@ Opinionated, production-ready SDK for building lean, highly-available cloud-nati
 
 Use this skill when the user works with the `cloops.microservices` SDK or asks about its setup, patterns, APIs, persistence options, consumers, consumer interceptors, controllers, services, caching, migrations, background processing, or operational features.
 
-Before answering or editing SDK-related code:
+Before working on an area powered by cloops.microservices SDK, use below documentation index to get important usage guide for area of your interest. Once you read the respective docs then only start working on it.
 
 1. Open the relevant guide from the Documentation Index below.
 2. Follow the SDK's documented conventions rather than generic .NET or NATS patterns.
@@ -42,7 +42,7 @@ Before answering or editing SDK-related code:
   - **9.2. Manticore (searchable documents) (WIP)** — https://github.com/connectionloops/cloops.microservices/blob/main/docs/manticore.md
   - **9.3. NimbusDb (object store backed) (WIP)** — https://github.com/connectionloops/cloops.microservices/blob/main/docs/nimbusdb.md
   - **9.4. TigerBeetle (transactional workloads)** — https://github.com/connectionloops/cloops.microservices/blob/main/docs/tigerbeetle.md
-  - **9.5. NATS KV (WIP)** — https://github.com/connectionloops/cloops.microservices/blob/main/docs/kv.md
+  - **9.5. NATS KV** — https://github.com/connectionloops/cloops.microservices/blob/main/docs/kv.md
   - **9.6. MinIO (WIP)** — https://github.com/connectionloops/cloops.microservices/blob/main/docs/min-io.md
 - **10. Invoking other services** — https://github.com/connectionloops/cloops.microservices/blob/main/docs/api.calls.md
 - **11. Lightweight REST Endpoints** — https://github.com/connectionloops/cloops.microservices/blob/main/docs/rest.md
@@ -63,15 +63,15 @@ Before answering or editing SDK-related code:
 
 ## Choosing a Persistence Backend
 
-| Use case                                                        | Choose               |
-| --------------------------------------------------------------- | -------------------- |
+| Use case                                                         | Choose               |
+| ---------------------------------------------------------------- | -------------------- |
 | Globally unique, sortable, low-latency IDs without a coordinator | Snowflake (IdGen)    |
-| Business data with relations; multiple tables modified together | Microsoft SQL Server |
-| Money, ledger, accounting — balances, transfers, double-entry   | TigerBeetle          |
-| Fast document retrieval by ID (< 20ms)                          | NATS KV (WIP)        |
-| Entity masters searchable by many properties (< 50ms)           | Manticore (WIP)      |
-| Massive objects retrieved by ID (~100ms)                        | NimbusDb (WIP)       |
-| Blob storage                                                    | MinIO (WIP)          |
+| Business data with relations; multiple tables modified together  | Microsoft SQL Server |
+| Money, ledger, accounting — balances, transfers, double-entry    | TigerBeetle          |
+| Fast get-by-key; value < 4KB; lowest latency; OCC / sequences    | NATS KV              |
+| Entity masters searchable by many properties (< 50ms)            | Manticore (WIP)      |
+| Massive objects retrieved by ID (~100ms)                         | NimbusDb (WIP)       |
+| Blob storage                                                     | MinIO (WIP)          |
 
 ## Install
 

@@ -415,6 +415,7 @@ These defaults are suitable for most use cases. The automatic renewal ensures th
 
 ## Related Documentation
 
+- [NATS KV](./kv.md) - Underlying KV store, OCC patterns, and when to use raw KV vs locks
 - [Services](./services.md) - Learn about background services where distributed locks are commonly used
 - [Making API Calls](./api.calls.md) - See how `ICloopsNatsClient` is used in other contexts
 - [NATS Client Documentation](../cloops.nats/docs/CurrentFunctionality.md) - Detailed technical documentation on the underlying NATS client

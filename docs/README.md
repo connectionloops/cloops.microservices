@@ -42,7 +42,7 @@ Before diving in, it's recommended that you:
   - **9.2. 🔍 [Manticore (searchable documents) (WIP)](./manticore.md)**
   - **9.3. 🗄️ [NimbusDb (object store backed) (WIP)](./nimbusdb.md)**
   - **9.4. 🐯 [TigerBeetle (transactional workloads)](./tigerbeetle.md)**
-  - **9.5. 📦 [NATS KV (WIP)](./kv.md)**
+  - **9.5. 📦 [NATS KV](./kv.md)**
   - **9.6. 📦 [MinIO (WIP)](./min-io.md)**
 - **10. 🌐 [Invoking other services](./api.calls.md)**
 - **11. 🌎 [Lightweight REST Endpoints](./rest.md)**
