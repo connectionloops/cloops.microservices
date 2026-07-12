@@ -92,10 +92,31 @@ public class BaseAppSettings
     /// </summary>
     public ulong TigerBeetleClusterId { get; init; } = ParseTigerBeetleClusterId();
 
+    /// <summary>
+    /// Gets a value indicating whether Snowflake ID generation (IdGen) is enabled.
+    /// When enabled, <see cref="SnowflakeGeneratorId"/> must be set to a unique,
+    /// stable per-node value or the application will error out at startup.
+    /// </summary>
+    public bool EnableSnowflakeId { get; init; } = Convert.ToBoolean(Environment.GetEnvironmentVariable("ENABLE_SNOWFLAKE_ID") ?? "False");
+
+    /// <summary>
+    /// Gets the Snowflake generator (node) id used by IdGen. Returns <c>-1</c> when
+    /// SNOWFLAKE_GENERATOR_ID is missing or invalid so the host can distinguish
+    /// "not configured" from a legitimate <c>0</c> and fail fast at startup.
+    /// </summary>
+    public int SnowflakeGeneratorId { get; init; } = ParseSnowflakeGeneratorId();
+
     private static ulong ParseTigerBeetleClusterId()
     {
         return ulong.TryParse(Environment.GetEnvironmentVariable("TB_CLUSTER_ID"), out var clusterId)
             ? clusterId
             : 0;
+    }
+
+    private static int ParseSnowflakeGeneratorId()
+    {
+        return int.TryParse(Environment.GetEnvironmentVariable("SNOWFLAKE_GENERATOR_ID"), out var generatorId)
+            ? generatorId
+            : -1;
     }
 }

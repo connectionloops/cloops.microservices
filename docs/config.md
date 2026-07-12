@@ -33,6 +33,8 @@ The `cloops.microservices` SDK provides a simple and flexible configuration syst
 - `RestApiSecret` - Shared secret for REST endpoints marked `RestAuth.Required`
 - `TigerBeetleAddresses` - Comma-separated TigerBeetle replica addresses
 - `TigerBeetleClusterId` - TigerBeetle cluster ID (default: `0`)
+- `EnableSnowflakeId` - Enable/disable Snowflake ID generation via IdGen (default: `False`)
+- `SnowflakeGeneratorId` - Unique, stable per-node generator id for IdGen (required when `EnableSnowflakeId` is `True`)
 
 All properties use `init` accessors and read from environment variables with sensible defaults.
 
@@ -92,6 +94,8 @@ Configuration values are loaded from environment variables. Set them before star
 | `REST_API_SECRET`              | Microservice   | Shared secret required by REST endpoints marked `RestAuth.Required`. Send it as `Authorization: Bearer <secret>` or `X-CLOOPS-REST-SECRET: <secret>`                                                                                                                                                                                                                 | None                             | Only for auth-required REST endpoints |
 | `TB_ADDRESSES`                 | TigerBeetle    | Comma-separated TigerBeetle replica addresses. When provided, the SDK registers `TigerBeetle.Client` in dependency injection                                                                                                                                                                                                                                         | None                             | No       |
 | `TB_CLUSTER_ID`                | TigerBeetle    | TigerBeetle cluster ID used when creating the client                                                                                                                                                                                                                                                                                                                 | `0`                              | No       |
+| `ENABLE_SNOWFLAKE_ID`          | Snowflake      | When `True`, registers the IdGen Snowflake ID generator in dependency injection. Requires `SNOWFLAKE_GENERATOR_ID` to be set to a unique, stable per-node value                                                                                                                                                                                                       | `False`                          | No       |
+| `SNOWFLAKE_GENERATOR_ID`        | Snowflake      | Integer generator (node) id for IdGen. Must be unique per replica and stable across restarts (e.g. a Kubernetes StatefulSet pod ordinal). The app errors out at startup if `ENABLE_SNOWFLAKE_ID` is `True` and this is missing/invalid                                                                                                                              | None                             | Yes, when `ENABLE_SNOWFLAKE_ID=True` |
 
 ### Setting Environment Variables
 
@@ -111,6 +115,8 @@ export ENABLE_NATS_CONSUMERS=True
 export ENABLE_REST_ENDPOINTS=True
 export REST_PORT=8080
 export REST_API_SECRET="your-rest-secret"
+export ENABLE_SNOWFLAKE_ID=True
+export SNOWFLAKE_GENERATOR_ID=3
 ```
 
 ### TigerBeetle Variables

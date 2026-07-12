@@ -59,3 +59,4 @@ Before diving in, it's recommended that you:
 - **17. 🔐 Decentralized JWT Auth for UI**
 - **18. 💨 [Caching](./caching.md)**
 - **19. 🧭 [Additional Setup](./additional-setup.md)**
+- **20. ❄️ [Snowflake ID Generation](./snowflake-id.md)**

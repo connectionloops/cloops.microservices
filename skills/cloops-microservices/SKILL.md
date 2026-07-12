@@ -1,6 +1,6 @@
 ---
 name: cloops-microservices
-description: Use the cloops.microservices SDK documentation when building, configuring, testing, or explaining C# / .NET microservices that use NATS consumers, consumer interceptors, persistence backends (SQL Server, TigerBeetle, Manticore, NimbusDb, NATS KV, MinIO), REST endpoints, caching, background processing, distributed locks, observability, or the cloops.microservices conventions.
+description: Use the cloops.microservices SDK documentation when building, configuring, testing, or explaining C# / .NET microservices that use NATS consumers, consumer interceptors, persistence backends (SQL Server, TigerBeetle, Manticore, NimbusDb, NATS KV, MinIO), REST endpoints, caching, background processing, distributed locks, observability, Snowflake ID generation, or the cloops.microservices conventions.
 ---
 
 # cloops.microservices
@@ -59,11 +59,13 @@ Before answering or editing SDK-related code:
 - **17. Decentralized JWT Auth for UI (WIP)**
 - **18. Caching** — https://github.com/connectionloops/cloops.microservices/blob/main/docs/caching.md
 - **19. Additional Setup** — https://github.com/connectionloops/cloops.microservices/blob/main/docs/additional-setup.md
+- **20. Snowflake ID Generation** — https://github.com/connectionloops/cloops.microservices/blob/main/docs/snowflake-id.md
 
 ## Choosing a Persistence Backend
 
 | Use case                                                        | Choose               |
 | --------------------------------------------------------------- | -------------------- |
+| Globally unique, sortable, low-latency IDs without a coordinator | Snowflake (IdGen)    |
 | Business data with relations; multiple tables modified together | Microsoft SQL Server |
 | Money, ledger, accounting — balances, transfers, double-entry   | TigerBeetle          |
 | Fast document retrieval by ID (< 20ms)                          | NATS KV (WIP)        |

@@ -11,3 +11,4 @@ Tracking what has changed since v1.1.15
 | May 11, 2026 | [database migrations](/docs/migrations.md)                           | 1.1.17        |
 | July 2, 2026 | [Agent Skill](/skills/cloops-microservices/README.md)                | 1.1.18        |
 | July 8, 2026 | [NATS Consumer Interceptor](/docs/consumer.md#consumer-interceptors) | 1.1.19        |
+| July 11, 2026 | [Snowflake ID generation (IdGen)](/docs/snowflake-id.md)             | 1.1.20        |

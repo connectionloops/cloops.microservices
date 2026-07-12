@@ -74,6 +74,7 @@ public partial class App
             OTEL Endpoint:           {appSettings.OtelEndpoint}
             Cluster:                 {appSettings.Cluster}
             Enable NATS Consumers:   {appSettings.EnableNatsConsumers}
+            Snowflake ID:            {(appSettings.EnableSnowflakeId ? $"enabled (generator-id {appSettings.SnowflakeGeneratorId})" : "disabled")}
         ";
         Console.WriteLine(introMessage);
         Console.WriteLine("Boostrapping app...");
@@ -116,6 +117,7 @@ public partial class App
         builder.Services.AddHostedService<DbMigrationHostedService>();
         Log.Information("✅ Registered DB migration hosted service");
         ConfigureTigerBeetle(appSettings);
+        ConfigureSnowflake();
         // Cache services must register before background services so that hosted-service
         // start order is: NATS → migrations → TigerBeetle/cache (incl. optional blocking startup hydration) → background jobs.
         RegisterCacheServices();
