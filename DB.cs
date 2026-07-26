@@ -117,6 +117,18 @@ public interface IDB
     Task<IDBTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Executes an action within a database transaction, committing on success and rolling back on failure.
+    /// </summary>
+    /// <typeparam name="T">The type of result returned by the action.</typeparam>
+    /// <param name="action">The action to execute within the transaction.</param>
+    /// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
+    /// <returns>The result returned by the action.</returns>
+    Task<T> RunInTransaction<T>(
+        Func<IDBTransaction, Task<T>> action,
+        CancellationToken cancellationToken = default
+    );
+
+    /// <summary>
     /// Executes a SQL script that contains <c>GO</c> batch separators.
     /// </summary>
     /// <param name="sqlScript">The full SQL script to execute.</param>
@@ -323,6 +335,28 @@ public class DB : IDB
         await connection.OpenAsync(cancellationToken);
         var transaction = (SqlTransaction)await connection.BeginTransactionAsync(cancellationToken);
         return new DBTransaction(connection, transaction);
+    }
+
+    /// <inheritdoc/>
+    public async Task<T> RunInTransaction<T>(
+        Func<IDBTransaction, Task<T>> action,
+        CancellationToken cancellationToken = default
+    )
+    {
+        ArgumentNullException.ThrowIfNull(action);
+
+        await using var transaction = await BeginTransactionAsync(cancellationToken);
+        try
+        {
+            var result = await action(transaction);
+            await transaction.CommitAsync(cancellationToken);
+            return result;
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 
     internal static async IAsyncEnumerable<T> ExecuteReadInternalAsync<T>(

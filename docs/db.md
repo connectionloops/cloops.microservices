@@ -501,13 +501,12 @@ if (userExists)
 
 ## Transactions
 
-For atomic multi-step operations where all changes must succeed or fail together, use `BeginTransactionAsync` to create a transaction.
+For atomic multi-step operations where all changes must succeed or fail together, use `RunInTransaction<T>`. It creates and disposes the transaction, commits when the action succeeds, and rolls back when the action throws.
 
-### Basic Transaction Usage
+### Automatic Transaction Management
 
 ```csharp
-await using var transaction = await _db.BeginTransactionAsync(ct);
-try
+var createdTemplateId = await _db.RunInTransaction(async transaction =>
 {
     // Insert template
     const string insertQuery = @"
@@ -543,20 +542,37 @@ try
         
         await transaction.ExecuteNonQueryAsync(mappingQuery, mappingParams, cancellationToken: ct);
     }
-    
-    // Commit all changes
+
+    return templateId;
+}, ct);
+```
+
+The value returned by the action becomes the result of `RunInTransaction<T>`. Any exception from the action or commit is rethrown after rollback.
+
+### Manual Transaction Management
+
+Use `BeginTransactionAsync` when you need direct control over commit and rollback:
+
+```csharp
+await using var transaction = await _db.BeginTransactionAsync(ct);
+try
+{
+    await transaction.ExecuteNonQueryAsync(query, parameters, cancellationToken: ct);
     await transaction.CommitAsync(ct);
-    _logger.LogInformation("Template and mappings created successfully");
 }
-catch (Exception ex)
+catch
 {
     await transaction.RollbackAsync(ct);
-    _logger.LogError(ex, "Failed to create template and mappings");
     throw;
 }
 ```
 
 ### Transaction Methods
+
+The `IDB` interface provides:
+
+- **`RunInTransaction<T>()`** - Execute an action in a transaction with automatic commit, rollback, and disposal
+- **`BeginTransactionAsync()`** - Create a transaction for manual lifecycle management
 
 The `IDBTransaction` interface provides the following methods:
 
@@ -568,14 +584,16 @@ The `IDBTransaction` interface provides the following methods:
 
 ### Transaction Best Practices
 
-1. **Always use `await using`** for automatic cleanup:
+1. **Prefer `RunInTransaction<T>`** when standard commit-on-success and rollback-on-failure behavior is sufficient.
+
+2. **Always use `await using` for manually managed transactions** to ensure cleanup:
    ```csharp
    await using var transaction = await _db.BeginTransactionAsync(ct);
    ```
 
-2. **Keep transactions as short as possible** to minimize database locking.
+3. **Keep transactions as short as possible** to minimize database locking.
 
-3. **Wrap transaction code in try-catch** and rollback on error:
+4. **Wrap manually managed transaction code in try-catch** and rollback on error:
    ```csharp
    await using var transaction = await _db.BeginTransactionAsync(ct);
    try
@@ -590,7 +608,7 @@ The `IDBTransaction` interface provides the following methods:
    }
    ```
 
-4. **Use transactions only when atomicity is required**.
+5. **Use transactions only when atomicity is required**.
 
 ## Advanced Features
 
@@ -796,8 +814,11 @@ var parameters = DB.pars(
     // ✅ Single value queries - use ExecuteScalarAsync
     int count = await _db.ExecuteScalarAsync<int>(countQuery, params, cancellationToken: ct);
    
-    // ✅ Multiple related operations - use transactions
-    await using var transaction = await _db.BeginTransactionAsync(ct);
+    // ✅ Multiple related operations - use a transaction
+    var result = await _db.RunInTransaction(
+        transaction => SaveRelatedRecords(transaction, ct),
+        ct
+    );
     ```
 
 ## Summary
@@ -807,7 +828,7 @@ The `DB` class provides:
 - ✅ Streaming results with `ExecuteReadAsync<T>` for efficient memory usage
 - ✅ Non-query operations with `ExecuteNonQueryAsync` for INSERT/UPDATE/DELETE
 - ✅ Scalar queries with `ExecuteScalarAsync<T>` for COUNT, MAX, etc.
-- ✅ Transactions with `BeginTransactionAsync` for atomic operations
+- ✅ Transactions with `RunInTransaction<T>` or `BeginTransactionAsync` for atomic operations
 - ✅ Automatic type mapping to C# objects
 - ✅ Parameterized queries for security
 - ✅ Support for multiple return types (objects, strings, JsonObject, atomic types)

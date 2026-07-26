@@ -13,3 +13,4 @@ Tracking what has changed since v1.1.15
 | July 8, 2026 | [NATS Consumer Interceptor](/docs/consumer.md#consumer-interceptors) | 1.1.19        |
 | July 11, 2026 | [Snowflake ID generation (IdGen)](/docs/snowflake-id.md)             | 1.1.20        |
 | July 19, 2026 | [NATS Consumer Exception Handler](/docs/consumer.md#consumer-exception-handlers) | 1.1.21 (requires `cloops.nats` with exception-handler support) |
+| July 26, 2026 | [`RunInTransaction<T>` automatic SQL transaction management](/docs/db.md#automatic-transaction-management) | 1.1.22 |
