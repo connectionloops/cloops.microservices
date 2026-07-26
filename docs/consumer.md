@@ -13,6 +13,7 @@ The framework automatically:
 - Manages queue groups for load balancing or broadcasting
 - Handles acknowledgments and error responses
 - Runs registered consumer interceptors before controller handlers
+- Routes handler exceptions through registered consumer exception handlers so they can return a `NatsAck` accordingly.
 
 You simply define controller classes with methods decorated with the `[NatsConsumer]` attribute, and the framework handles the rest.
 
@@ -108,7 +109,7 @@ public class HealthStatus
 }
 ```
 
-### Step 4: Understanding the Consumer Method Signature
+### Step 2: Understanding the Consumer Method Signature
 
 Your consumer method in a controller must follow this pattern:
 
@@ -119,13 +120,39 @@ Your consumer method in a controller must follow this pattern:
 3. **Attribute**: The method must be decorated with `[NatsConsumer]` attribute
 4. **Location**: The method must be in a class within a namespace ending with `Controllers`
 
-### Step 5: The NatsAck Response
+### Step 3: The NatsAck Response
 
 The `NatsAck` class is used to acknowledge message processing:
 
 - `_isAck: true` - Acknowledges the message (success)
 - `_isAck: false` - Negatively acknowledges the message (failure, will be redelivered)
 - `_reply: replyObject` - Optional reply message to send back to the requester
+
+### Step 4: Understanding the Architecture
+
+The framework follows a **separation of concerns** pattern similar to REST frameworks like Spring and ASP.NET:
+
+- **Controllers** handle NATS messages: They receive `NatsMsg<T>` wrappers and return `NatsAck` responses
+- **Services** contain business logic: They work with pure C# objects (no NATS wrappers) and can be easily tested and reused
+
+This separation provides several benefits:
+
+- Services can be unit tested without NATS infrastructure
+- Services can be reused across different controllers or even non-NATS contexts
+- Clear separation between transport layer (controllers) and business logic (services)
+- Alignment with familiar patterns from REST frameworks
+
+### Step 5: Run Your Application
+
+Once you've created your controller, the framework will automatically:
+
+1. Discover the controller class (because it's in a namespace ending with `Controllers`)
+2. Register it with dependency injection
+3. Discover any `[NatsConsumer]` methods in the controller
+4. Subscribe to the NATS subjects (e.g., `health.your.service`)
+5. Process incoming messages automatically
+
+That's it! Your consumer is now ready to receive and process messages.
 
 ## Consumer Interceptors
 
@@ -137,10 +164,10 @@ If an interceptor rejects a message, the handler is not called.
 
 #### What happens on reject
 
-| Transport | Default reject behavior | Optional retry | Optional reply | What the requester gets |
-| --------- | ----------------------- | -------------- | -------------- | ----------------------- |
-| **JetStream (durable)** | Message is terminated (`AckTerminate`) so it is not redelivered | `Reject(..., shouldRetryDelivery: true)` sends a `Nak` | Ignored | JetStream rejection only affects delivery/ack semantics |
-| **Core NATS** | Message is discarded; handler never runs | `shouldRetryDelivery` is ignored (Core has no redelivery) | `Reject(..., reply: errorPayload)` | For request/reply with `reply`: requester receives that payload. Without `reply` (or no `ReplyTo`): nothing — requester times out on request/reply |
+| Transport               | Default reject behavior                                         | Optional retry                                            | Optional reply                     | What the requester gets                                                                                                                            |
+| ----------------------- | --------------------------------------------------------------- | --------------------------------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **JetStream (durable)** | Message is terminated (`AckTerminate`) so it is not redelivered | `Reject(..., shouldRetryDelivery: true)` sends a `Nak`    | Ignored                            | JetStream rejection only affects delivery/ack semantics                                                                                            |
+| **Core NATS**           | Message is discarded; handler never runs                        | `shouldRetryDelivery` is ignored (Core has no redelivery) | `Reject(..., reply: errorPayload)` | For request/reply with `reply`: requester receives that payload. Without `reply` (or no `ReplyTo`): nothing — requester times out on request/reply |
 
 For Core request/reply AuthZ failures, prefer rejecting with an explicit reply so callers get a typed error instead of a timeout:
 
@@ -248,31 +275,154 @@ public async Task<NatsAck> RegisterPatient(NatsMsg<RegisterPatientRequest> msg, 
 }
 ```
 
-### Step 2: Understanding the Architecture
+## Consumer Exception Handlers
 
-The framework follows a **separation of concerns** pattern similar to REST frameworks like Spring and ASP.NET:
+Consumer exception handlers are platform-level hooks that run **after** a `[NatsConsumer]` handler throws. They complement interceptors:
 
-- **Controllers** handle NATS messages: They receive `NatsMsg<T>` wrappers and return `NatsAck` responses
-- **Services** contain business logic: They work with pure C# objects (no NATS wrappers) and can be easily tested and reused
+| Hook                            | When it runs             | Typical use                                                 |
+| ------------------------------- | ------------------------ | ----------------------------------------------------------- |
+| `INatsConsumerInterceptor`      | Before the handler       | AuthZ, tenant checks, payload normalization                 |
+| `INatsConsumerExceptionHandler` | After the handler throws | Map domain/unexpected exceptions to a typed `NatsAck` reply |
 
-This separation provides several benefits:
+Exception handlers are resolved from dependency injection and run in registration order. Each handler receives the thrown exception (unwrapped from reflection wrappers), the typed message, subject, headers, raw body bytes, and handler metadata. Return a `NatsAck` to apply that response, or `null` to let the next registered handler try. If every handler returns `null` (or none are registered), the platform keeps the previous default: log the error and rethrow with the original stack trace, leaving the JetStream message unacked and therefore retryable.
 
-- Services can be unit tested without NATS infrastructure
-- Services can be reused across different controllers or even non-NATS contexts
-- Clear separation between transport layer (controllers) and business logic (services)
-- Alignment with familiar patterns from REST frameworks
+`OperationCanceledException` during host shutdown is never converted into a `NatsAck`.
 
-### Step 3: Run Your Application
+#### What happens when an exception handler returns a `NatsAck`
 
-Once you've created your controller, the framework will automatically:
+| Transport               | `IsAcknowledged = true`              | `IsAcknowledged = false`, retry | `IsAcknowledged = false`, no retry | Optional `Reply`                        |
+| ----------------------- | ------------------------------------ | ------------------------------- | ---------------------------------- | --------------------------------------- |
+| **JetStream (durable)** | `AckAsync`                           | `NakAsync`                      | `AckTerminateAsync`                | Ignored                                 |
+| **Core NATS**           | Success path (no redelivery concept) | Same (no redelivery)            | Same                               | Sent when inbound message has `ReplyTo` |
 
-1. Discover the controller class (because it's in a namespace ending with `Controllers`)
-2. Register it with dependency injection
-3. Discover any `[NatsConsumer]` methods in the controller
-4. Subscribe to the NATS subjects (e.g., `health.your.service`)
-5. Process incoming messages automatically
+For Core request/reply failures, return an acknowledged error payload in `Reply` so callers get a typed error instead of a timeout.
 
-That's it! Your consumer is now ready to receive and process messages.
+#### Mapping an exception never hides it
+
+Handling an exception changes the **delivery outcome**, not the **error rate**. Whichever row of the table above applies, the platform also:
+
+| Concern              | Behavior                                                                                                                                                       |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Logging**          | Logs the original exception at `Warning` with the failing controller method, the exception handler that claimed it, and the resulting ack flags                |
+| **Metrics**          | Records the invocation as `fail`, even when the exception handler chose `IsAcknowledged = true`                                                                |
+| **Ack semantics**    | Applies exactly what the returned `NatsAck` asked for — the failure metric does not change what NATS is told                                                   |
+| **Returned ack**     | Carries `IsExceptionMapped = true`, `MappedException` (the original exception), and `MappedByHandlerType` (the handler that mapped it)                         |
+| **Broken handlers**  | If an exception handler itself throws, that failure is logged at `Error` and the next registered handler runs; the original exception is never lost or replaced |
+
+This means a catch-all exception handler cannot silently turn production errors into green dashboards: acknowledged-but-failed invocations still show up in your error rate and in the logs.
+
+### Register an Exception Handler
+
+```cs
+using CLOOPS.NATS;
+
+builder.Services.AddNatsConsumerExceptionHandler<DomainExceptionHandler>();
+```
+
+You can register multiple handlers; they run in registration order and the first non-null `NatsAck` wins:
+
+```cs
+builder.Services.AddNatsConsumerExceptionHandler<ValidationExceptionHandler>();
+builder.Services.AddNatsConsumerExceptionHandler<DomainExceptionHandler>();
+```
+
+### Mapping Example
+
+```cs
+using CLOOPS.NATS;
+using CLOOPS.NATS.Meta;
+
+public sealed class DomainExceptionHandler : INatsConsumerExceptionHandler
+{
+    public ValueTask<NatsAck?> HandleExceptionAsync(
+        NatsConsumerExceptionContext context,
+        CancellationToken ct = default)
+    {
+        return context.Exception switch
+        {
+            ArgumentException arg => ValueTask.FromResult<NatsAck?>(
+                new NatsAck(
+                    _isAck: true,
+                    _reply: new ErrorReply { Code = "BAD_REQUEST", Message = arg.Message },
+                    _shouldRetryDelivery: false)),
+
+            TimeoutException timeout => ValueTask.FromResult<NatsAck?>(
+                new NatsAck(
+                    _isAck: false,
+                    _reply: new ErrorReply { Code = "TIMEOUT", Message = timeout.Message },
+                    _shouldRetryDelivery: true)),
+
+            // Decline so another handler (or platform default) can take over.
+            _ => ValueTask.FromResult<NatsAck?>(null)
+        };
+    }
+}
+
+public sealed class ErrorReply
+{
+    public string Code { get; set; } = "";
+    public string Message { get; set; } = "";
+}
+```
+
+With this registered, controllers can throw domain exceptions instead of wrapping every body in try/catch; the platform converts handled exceptions into the returned `NatsAck` while still logging and counting them as failures.
+
+### Delivery Context (JetStream vs Core)
+
+Both context types expose read-only delivery information so a handler can tell which transport it is on and how many times the message has been attempted:
+
+| Member                    | Type                                 | Notes                                                                          |
+| ------------------------- | ------------------------------------ | ------------------------------------------------------------------------------ |
+| `IsJetStream`             | `bool`                               | `false` means Core NATS, where `ShouldRetryDelivery` is ignored and `Reply` is honoured |
+| `JetStream`               | `NatsConsumerJetStreamMetadata?`     | `null` on Core NATS                                                            |
+| `JetStream.NumDelivered`  | `ulong`                              | Delivery attempt number, starting at 1                                         |
+| `JetStream.IsRedelivery`  | `bool`                               | `NumDelivered > 1`                                                             |
+| `JetStream.NumPending`    | `ulong`                              | Messages still pending for the consumer                                        |
+| `JetStream.StreamSequence` / `ConsumerSequence` | `ulong`        | Sequence numbers, useful as correlation keys in logs                           |
+| `JetStream.Timestamp`     | `DateTimeOffset`                     | When the message was stored in the stream                                      |
+| `JetStream.Stream` / `Consumer` / `Domain` | `string` / `string?`| Where the message came from                                                    |
+
+```cs
+logger.LogWarning(
+    "Order {Seq} failed on attempt {Attempt}",
+    context.JetStream?.StreamSequence,
+    context.JetStream?.NumDelivered ?? 1);
+```
+
+> **This is observability, not policy.** Retry budgets and dead-letter routing stay in stream and consumer configuration owned by the control plane. `MaxDeliver` is not carried on the message, so you cannot derive "is this the final attempt" from `NumDelivered`. For terminal escalation, subscribe to JetStream's `$JS.EVENT.ADVISORY.CONSUMER.MAX_DELIVERIES` advisory instead of hard-coding the retry limit in application code.
+
+### Unit Testing Your Handlers
+
+`NatsConsumerExceptionContext` and `NatsConsumerInterceptorContext` have public constructors, so you can test your mapping logic directly without a NATS server or a running host:
+
+```cs
+[Fact]
+public async Task MapsArgumentExceptionToBadRequest()
+{
+    var context = new NatsConsumerExceptionContext(
+        matchedSubject: "orders.created",
+        payloadType: typeof(Order),
+        handlerType: typeof(OrderController),
+        handlerMethod: typeof(OrderController).GetMethod(nameof(OrderController.CreateOrder))!,
+        message: new NatsMsg<Order>(
+            subject: "orders.created",
+            replyTo: "reply.inbox",
+            size: 0,
+            headers: null,
+            data: new Order { Id = 1 },
+            connection: null!,
+            flags: default),
+        exception: new ArgumentException("bad order"),
+        rawData: null);
+
+    var ack = await new DomainExceptionHandler().HandleExceptionAsync(context);
+
+    Assert.True(ack!.IsAcknowledged);
+    Assert.Equal("BAD_REQUEST", ((ErrorReply)ack.Reply!).Code);
+}
+```
+
+The `message` argument must be a `NatsMsg<T>` matching `payloadType`, otherwise the constructor throws `ArgumentException`.
 
 ## NatsConsumerAttribute Options
 
@@ -528,8 +678,9 @@ public class OrderService
 6. **Use dependency injection**: Inject services, loggers, and settings through constructor injection
 7. **Keep services pure**: Services should work with pure C# objects, not NATS wrappers, making them testable and reusable
 8. **Use consumer interceptors for cross-cutting checks**: Put shared AuthZ, tenant validation, and normalization in interceptors instead of duplicating it across many controllers
-9. **Log appropriately**: Use structured logging to track message processing
-10. **Respect cancellation tokens**: Use the `CancellationToken` parameter for graceful shutdown
+9. **Use consumer exception handlers for shared error mapping**: Convert thrown domain exceptions into typed `NatsAck` replies instead of wrapping every controller method in try/catch
+10. **Log appropriately**: Use structured logging to track message processing
+11. **Respect cancellation tokens**: Use the `CancellationToken` parameter for graceful shutdown
 
 ## Next Steps
 

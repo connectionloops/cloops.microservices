@@ -1,6 +1,6 @@
 # cloops-microservices skill
 
-An installable [Agent Skill](https://cursor.com/docs/skills) that gives coding agents the `cloops.microservices` SDK documentation index, including consumer interceptor guidance, with absolute links back to the source docs.
+An installable [Agent Skill](https://cursor.com/docs/skills) that gives coding agents the `cloops.microservices` SDK documentation index, including consumer interceptor and exception-handler guidance, with absolute links back to the source docs.
 
 ## Install
 

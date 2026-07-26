@@ -1,6 +1,6 @@
 ---
 name: cloops-microservices
-description: Use the cloops.microservices SDK documentation when building, configuring, testing, or explaining C# / .NET microservices that use NATS consumers, consumer interceptors, persistence backends (SQL Server, TigerBeetle, Manticore, NimbusDb, NATS KV, MinIO), REST endpoints, caching, background processing, distributed locks, observability, Snowflake ID generation, or the cloops.microservices conventions.
+description: Use the cloops.microservices SDK documentation when building, configuring, testing, or explaining C# / .NET microservices that use NATS consumers, consumer interceptors, consumer exception handlers, persistence backends (SQL Server, TigerBeetle, Manticore, NimbusDb, NATS KV, MinIO), REST endpoints, caching, background processing, distributed locks, observability, Snowflake ID generation, or the cloops.microservices conventions.
 ---
 
 # cloops.microservices
@@ -9,7 +9,7 @@ Opinionated, production-ready SDK for building lean, highly-available cloud-nati
 
 ## Instructions
 
-Use this skill when the user works with the `cloops.microservices` SDK or asks about its setup, patterns, APIs, persistence options, consumers, consumer interceptors, controllers, services, caching, migrations, background processing, or operational features.
+Use this skill when the user works with the `cloops.microservices` SDK or asks about its setup, patterns, APIs, persistence options, consumers, consumer interceptors, consumer exception handlers, controllers, services, caching, migrations, background processing, or operational features.
 
 Before working on an area powered by cloops.microservices SDK, use below documentation index to get important usage guide for area of your interest. Once you read the respective docs then only start working on it.
 
@@ -30,7 +30,7 @@ Before working on an area powered by cloops.microservices SDK, use below documen
 - **1. Getting started** — https://github.com/connectionloops/cloops.microservices/blob/main/docs/installation.md
 - **2. Automated DI Setup** — https://github.com/connectionloops/cloops.microservices/blob/main/docs/di.md
 - **3. Application Config** — https://github.com/connectionloops/cloops.microservices/blob/main/docs/config.md
-- **4. Registering your first NATS consumer and consumer interceptors** — https://github.com/connectionloops/cloops.microservices/blob/main/docs/consumer.md
+- **4. Registering your first NATS consumer, consumer interceptors, and consumer exception handlers** — https://github.com/connectionloops/cloops.microservices/blob/main/docs/consumer.md
 - **5. Strong Schema Architecture** — https://github.com/connectionloops/cloops.microservices/blob/main/docs/schema.md
 - **6. Utility Functions** — https://github.com/connectionloops/cloops.microservices/blob/main/docs/util.md
 - **7. Controllers** — https://github.com/connectionloops/cloops.microservices/blob/main/docs/controllers.md

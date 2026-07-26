@@ -30,7 +30,7 @@ Before diving in, it's recommended that you:
 - **1. 🚀 [Getting started](./installation.md)**
 - **2. 🔌 [Automated DI Setup](./di.md)**
 - **3. ⚙️ [Application Config](./config.md)**
-- **4. 📨 [Registering your first NATS consumer](./consumer.md)**
+- **4. 📨 [Registering your first NATS consumer (interceptors + exception handlers)](./consumer.md)**
 - **5. 📋 [Strong Schema Architecture](./schema.md)**
 - **6. 🛠️ [Utility Functions](./util.md)**
 - **7. 🎮 [Controllers](./controllers.md)**
