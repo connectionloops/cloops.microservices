@@ -111,35 +111,16 @@ Messages with a `Validate()` method are automatically validated before processin
 
 ### How It Works
 
-All messages should inherit from a `BaseMessage` class, which provides a `Validate()` method that uses Data Annotations to validate message properties. See the [reference implementation](https://github.com/connectionloops/cloops.nats/tree/main/examples/schema) for a complete examples:
+Top-level NATS messages should inherit from a `BaseMessage` class, which provides a `Validate()` method that uses Data Annotations to validate message properties — including nested complex objects and collection items. Nested DTOs do **not** need to inherit `BaseMessage`; plain classes with Data Annotations are enough.
 
-```csharp
-public abstract class BaseMessage
-{
-    public void Validate()
-    {
-        var validationContext = new ValidationContext(this);
-        var validationResults = new List<ValidationResult>();
+See the [reference implementation](https://github.com/connectionloops/cloops.nats/tree/main/examples/schema) and the Connection Loops schema package (`cloops.nats.schema`) for the full recursive `Validate()` implementation. Behavior highlights:
 
-        bool isValid = Validator.TryValidateObject(
-            this, validationContext, validationResults,
-            validateAllProperties: true
-        );
+- Nested failures include member paths such as `pagination.limit` or `items[2].name`
+- Reference cycles are detected so validation does not stack-overflow
+- Scalar collections such as `byte[]`, `int[]`, and `List<Guid>` are not enumerated item-by-item
+- Only top-level messages need to inherit `BaseMessage`
 
-        if (!isValid)
-        {
-            var errorMessages = validationResults
-                .Select(r => r.ErrorMessage)
-                .Where(m => !string.IsNullOrWhiteSpace(m))
-                .ToList();
-
-            throw new ValidationException(
-                $"Message validation failed: {string.Join("; ", errorMessages)}"
-            );
-        }
-    }
-}
-```
+> **Behavior note:** Payloads that previously passed root-level validation but contained invalid nested fields will fail once recursive validation is enabled. Review nested DTO annotations when bumping your schema package.
 
 ### Validation on Publish
 
@@ -160,9 +141,18 @@ If validation fails, a `ValidationException` should be thrown **before** the mes
 
 ### Defining Validation Rules
 
-Use Data Annotations to define validation rules on your message classes:
+Use Data Annotations to define validation rules on your message classes and nested DTOs:
 
 ```csharp
+public class Address
+{
+    [Required(ErrorMessage = "Street is required")]
+    public string Street { get; set; } = "";
+
+    [Range(1, 99999, ErrorMessage = "Zip must be valid")]
+    public int Zip { get; set; }
+}
+
 public class Person : BaseMessage
 {
     [Required(ErrorMessage = "Id is required")]
@@ -175,7 +165,7 @@ public class Person : BaseMessage
     public int Age { get; set; } = 0;
 
     [Required(ErrorMessage = "Address is required")]
-    public string Addr { get; set; } = "";
+    public Address? Address { get; set; }
 }
 ```
 
@@ -268,8 +258,8 @@ public Task<NatsAck> HandleSavePerson(NatsMsg<Person> msg, CancellationToken ct 
 ## Best Practices
 
 1. **Create a central schema repository** - All microservices must reference the same schema package
-2. **Always inherit from `BaseMessage`** - This ensures all messages have validation capabilities
-3. **Use Data Annotations liberally** - Define clear validation rules for all required fields
+2. **Inherit `BaseMessage` on top-level messages** - Nested DTOs can be plain classes; `Validate()` cascades into them automatically
+3. **Use Data Annotations liberally** - Define clear validation rules on root and nested fields
 4. **One message per subject** - Maintain type safety and clear contracts
 5. **Use Subject Builders** - Never construct subjects manually; use builders for type safety
 6. **Trust the validation** - Handlers can assume messages are valid; no need for defensive checks
