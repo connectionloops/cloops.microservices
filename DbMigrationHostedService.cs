@@ -1,4 +1,5 @@
 using CLOOPS.NATS;
+using CLOOPS.NATS.Locking;
 using DbUp;
 using DbUp.Engine;
 using Microsoft.Extensions.DependencyInjection;
@@ -71,11 +72,20 @@ public sealed class DbMigrationHostedService : IHostedService
             return;
         }
 
-        var migrationLockKey = $"db-migrations:{appSettings.AssemblyName}";
-        await using var handle = await natsClient!.AcquireDistributedLockAsync(
-            migrationLockKey,
-            MigrationLockTimeout,
-            ct: cancellationToken).ConfigureAwait(false);
+        var migrationLockKey = $"db-migrations.{appSettings.AssemblyName}";
+        DistributedLockHandle? handle;
+        try
+        {
+            handle = await natsClient!.AcquireDistributedLockAsync(
+                migrationLockKey,
+                MigrationLockTimeout,
+                ct: cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "⚠️ Skipping database migrations because distributed lock {MigrationLockKey} could not be acquired. Another pod may be applying migrations.", migrationLockKey);
+            return;
+        }
 
         if (handle == null)
         {
@@ -83,7 +93,10 @@ public sealed class DbMigrationHostedService : IHostedService
             return;
         }
 
-        RunMigrations(sqlScripts);
+        await using (handle)
+        {
+            RunMigrations(sqlScripts);
+        }
     }
 
     /// <inheritdoc />
