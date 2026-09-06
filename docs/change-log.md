@@ -14,3 +14,5 @@ Tracking what has changed since v1.1.15
 | July 11, 2026 | [Snowflake ID generation (IdGen)](/docs/snowflake-id.md)             | 1.1.20        |
 | July 19, 2026 | [NATS Consumer Exception Handler](/docs/consumer.md#consumer-exception-handlers) | 1.1.21 (requires `cloops.nats` with exception-handler support) |
 | July 26, 2026 | [`RunInTransaction<T>` automatic SQL transaction management](/docs/db.md#automatic-transaction-management) | 1.1.22 |
+| July 27, 2026 | Fix: migration distributed-lock key uses a valid NATS KV separator; migrations skip gracefully when the lock cannot be acquired | 1.1.25 |
+| September 6, 2026 | Fix: cache refresh distributed-lock key uses a valid NATS KV separator (`cache-refresh.{CacheName}`), a failing lock service no longer crashes host startup, and new [`NatsKvKey`](/docs/distributed-locks.md#lock-key-rules) validator rejects invalid KV / lock keys with an actionable message | 1.1.26 |

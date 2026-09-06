@@ -1,4 +1,5 @@
 using CLOOPS.microservices.Extensions;
+using CLOOPS.NATS.Locking;
 using Microsoft.Extensions.Logging;
 
 namespace CLOOPS.microservices;
@@ -10,7 +11,12 @@ public abstract partial class BaseCacheService<TValue>
     /// Acquires a distributed lock so only one pod hydrates at a time when NATS is configured.
     /// </summary>
     /// <param name="retries">Number of retry attempts when the distributed lock is held by another instance. Defaults to 0.</param>
-    /// <param name="throwOnFail">When <c>true</c>, throws if the lock cannot be acquired. Defaults to <c>false</c>.</param>
+    /// <param name="throwOnFail">
+    /// When <c>true</c>, throws if the lock cannot be acquired - both when another instance holds it
+    /// and when the lock service itself fails. When <c>false</c> (the default), a failing lock service
+    /// is logged as an error and the refresh proceeds without a distributed lock, matching the
+    /// behaviour when no NATS client is configured.
+    /// </param>
     /// <param name="ct">Cancellation token.</param>
     public async Task RefreshAllAsync(int retries = 0, bool throwOnFail = false, CancellationToken ct = default)
     {
@@ -37,17 +43,42 @@ public abstract partial class BaseCacheService<TValue>
         }
 
         var attempts = retries + 1;
-        var lockKey = $"cache-refresh:{CacheName}";
+        var lockKey = GetRefreshLockKey(CacheName);
         for (var attempt = 1; attempt <= attempts; attempt++)
         {
-            await using var handle = await natsClient.AcquireDistributedLockAsync(
-                lockKey,
-                TimeSpan.FromMilliseconds(500),
-                ct: ct);
+            DistributedLockHandle? handle;
+            try
+            {
+                NatsKvKey.Validate(lockKey, nameof(lockKey));
+                handle = await natsClient.AcquireDistributedLockAsync(
+                    lockKey,
+                    TimeSpan.FromMilliseconds(500),
+                    ct: ct);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // The lock itself is unusable (invalid key, missing KV bucket, NATS error). This is
+                // not the "another instance holds the lock" case, so degrade exactly like the
+                // "NATS client is not configured" branch above - log loudly and refresh without a
+                // distributed lock - rather than taking the host down over a cache refresh.
+                // Callers that passed throwOnFail: true still get the failure.
+                if (throwOnFail)
+                {
+                    throw;
+                }
+
+                logger.LogError(ex, "[{CacheName}]::Could not acquire the cache refresh lock '{CacheRefreshLockKey}'; running cache refresh without a distributed lock", CacheName, lockKey);
+                await ReplaceAllAsync(ct);
+                return;
+            }
 
             if (handle != null)
             {
-                await ReplaceAllAsync(ct);
+                await using (handle)
+                {
+                    await ReplaceAllAsync(ct);
+                }
+
                 return;
             }
 
