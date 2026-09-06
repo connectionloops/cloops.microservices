@@ -317,7 +317,16 @@ sequenceDiagram
     end
 ```
 
-Distributed locks use the existing NATS JetStream lock support. If NATS is not configured, the cache service logs a warning and performs refresh without a distributed lock. The same degradation applies when the lock service itself fails (NATS error, missing KV bucket): the SDK logs an error and refreshes **without** a lock rather than failing startup — a failing lock should not take the host down over a cache refresh. Callers that pass `throwOnFail: true` still get the exception.
+Distributed locks use the existing NATS JetStream lock support. If NATS is not configured, the cache service logs a warning and performs refresh without a distributed lock.
+
+Two other lock failures are handled differently on purpose. Neither one fails host startup:
+
+| Failure | Behaviour | Why |
+| --- | --- | --- |
+| **Invalid lock key** — the cache name contains a character NATS KV rejects (e.g. a space) | Log an error, refresh **without** a lock | Deterministic: the key fails identically on every pod, forever, so blocking refresh permanently achieves nothing. Fix the cache name. |
+| **Lock service failure** — NATS outage, missing KV bucket, timeout | Log an error, **skip** this refresh until the next scheduled run | Correlated across the fleet: every pod fails at the same moment. Refreshing unlocked here would put every pod through a full `HydrateAllAsync` on every cron tick, with matching L2 write amplification, precisely during an outage. |
+
+Callers that pass `throwOnFail: true` still get the exception in both cases.
 
 > ⚠️ The refresh lock key is `cache-refresh.{CacheName}` — dot-separated, because it is a NATS KV key and **NATS KV keys may not contain `:`**. This is deliberately different from the Redis cache key below. See [Lock key rules](./distributed-locks.md#lock-key-rules).
 
