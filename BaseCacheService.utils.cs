@@ -40,7 +40,19 @@ public abstract partial class BaseCacheService<TValue>
 
     private string GetCacheKey(string key)
     {
+        // HybridCache / Redis key. ':' is the Redis convention and is correct here; this is NOT a
+        // NATS KV key, so it intentionally differs from the distributed-lock key below.
         return $"{CacheName}:{key}";
+    }
+
+    /// <summary>
+    /// Builds the NATS distributed-lock key used to serialise bulk refresh across pods.
+    /// Segments are joined with <see cref="NatsKvKey.Separator"/> because NATS KV keys - and
+    /// therefore distributed-lock keys - may not contain ':'.
+    /// </summary>
+    internal static string GetRefreshLockKey(string cacheName)
+    {
+        return $"cache-refresh{NatsKvKey.Separator}{cacheName}";
     }
 }
 

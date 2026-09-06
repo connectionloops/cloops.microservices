@@ -115,7 +115,7 @@ Every pod starts its own hosted service. If a job must run only once across repl
 
 ```csharp
 await using var handle = await natsClient.AcquireDistributedLockAsync(
-    "my-service:nightly-cleanup",
+    "my-service.nightly-cleanup",
     TimeSpan.FromMilliseconds(500),
     ct: stoppingToken);
 
@@ -128,7 +128,11 @@ if (handle is null)
 await CleanupAsync(stoppingToken);
 ```
 
-Use a stable, descriptive lock key. Include the service name and job name so unrelated jobs do not block each other. See [Distributed Locks](./distributed-locks.md) for details.
+Use a stable, descriptive lock key. Include the service name and job name so unrelated jobs do not block each other.
+
+> ⚠️ **Lock keys may not contain `:`.** A distributed lock is a NATS KV entry, and NATS restricts KV keys to letters, digits and `-`, `_`, `=`, `/`, `.`. Use `.` as the separator - `my-service.nightly-cleanup`, never `my-service:nightly-cleanup`. A key containing `:` makes `AcquireDistributedLockAsync` throw `NatsKVException`. See [Lock key rules](./distributed-locks.md#lock-key-rules).
+
+See [Distributed Locks](./distributed-locks.md) for details.
 
 Jobs that are safe to run on every replica, such as a local heartbeat log, do not need a distributed lock.
 

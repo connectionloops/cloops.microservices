@@ -72,10 +72,14 @@ public sealed class DbMigrationHostedService : IHostedService
             return;
         }
 
-        var migrationLockKey = $"db-migrations.{appSettings.AssemblyName}";
+        // Assembly names may legally contain characters NATS KV rejects (spaces, ':', ...), so the
+        // composed key is validated here to surface a message naming the key and the offending
+        // character rather than an opaque NatsKVException.
+        var migrationLockKey = $"db-migrations{NatsKvKey.Separator}{appSettings.AssemblyName}";
         DistributedLockHandle? handle;
         try
         {
+            NatsKvKey.Validate(migrationLockKey, nameof(migrationLockKey));
             handle = await natsClient!.AcquireDistributedLockAsync(
                 migrationLockKey,
                 MigrationLockTimeout,

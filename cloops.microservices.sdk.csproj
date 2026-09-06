@@ -7,6 +7,13 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
+  <!-- The test project lives under tests/; keep its sources out of the packaged SDK assembly. -->
+  <ItemGroup>
+    <Compile Remove="tests/**" />
+    <None Remove="tests/**" />
+    <EmbeddedResource Remove="tests/**" />
+    <InternalsVisibleTo Include="cloops.microservices.sdk.Tests" />
+  </ItemGroup>
 
   <!-- Nuget Metadata -->
   <PropertyGroup>

@@ -1,4 +1,5 @@
 using CLOOPS.microservices.Extensions;
+using CLOOPS.NATS.Locking;
 using Microsoft.Extensions.Logging;
 
 namespace CLOOPS.microservices;
@@ -10,7 +11,15 @@ public abstract partial class BaseCacheService<TValue>
     /// Acquires a distributed lock so only one pod hydrates at a time when NATS is configured.
     /// </summary>
     /// <param name="retries">Number of retry attempts when the distributed lock is held by another instance. Defaults to 0.</param>
-    /// <param name="throwOnFail">When <c>true</c>, throws if the lock cannot be acquired. Defaults to <c>false</c>.</param>
+    /// <param name="throwOnFail">
+    /// When <c>true</c>, throws if the lock cannot be acquired - when another instance holds it, when
+    /// the lock key is invalid, and when the lock service itself fails. When <c>false</c> (the default):
+    /// an invalid lock key is logged as an error and the refresh proceeds <i>without</i> a distributed
+    /// lock (the key can never work, so blocking forever is pointless), while a failing lock service
+    /// is logged as an error and the refresh is <i>skipped</i> until the next scheduled run (the
+    /// failure is correlated across pods, so refreshing unlocked would cause a thundering herd).
+    /// Neither case fails host startup.
+    /// </param>
     /// <param name="ct">Cancellation token.</param>
     public async Task RefreshAllAsync(int retries = 0, bool throwOnFail = false, CancellationToken ct = default)
     {
@@ -37,17 +46,68 @@ public abstract partial class BaseCacheService<TValue>
         }
 
         var attempts = retries + 1;
-        var lockKey = $"cache-refresh:{CacheName}";
+        var lockKey = GetRefreshLockKey(CacheName);
+
+        // DETERMINISTIC failure: the key is structurally invalid (e.g. the cache name contains a
+        // space or ':'), so NATS will reject it on every attempt, forever, on every pod. Blocking
+        // refresh permanently over a key that can never work is worse than refreshing unlocked, and
+        // crashing the host over a cache refresh is worse still - so log loudly and degrade.
+        // This is checked up front, OUTSIDE the acquisition try/catch, precisely so that it cannot
+        // be confused with a transient lock failure. Do not merge the two: see the catch below.
+        var lockKeyError = NatsKvKey.GetValidationError(lockKey);
+        if (lockKeyError != null)
+        {
+            if (throwOnFail)
+            {
+                throw new InvalidOperationException($"[{CacheName}]::{lockKeyError}");
+            }
+
+            logger.LogError(
+                "[{CacheName}]::{CacheRefreshLockKeyError} Running cache refresh WITHOUT a distributed lock; fix the cache name so the lock key only contains characters NATS KV accepts.",
+                CacheName,
+                lockKeyError);
+            await ReplaceAllAsync(ct);
+            return;
+        }
+
         for (var attempt = 1; attempt <= attempts; attempt++)
         {
-            await using var handle = await natsClient.AcquireDistributedLockAsync(
-                lockKey,
-                TimeSpan.FromMilliseconds(500),
-                ct: ct);
+            DistributedLockHandle? handle;
+            try
+            {
+                handle = await natsClient.AcquireDistributedLockAsync(
+                    lockKey,
+                    TimeSpan.FromMilliseconds(500),
+                    ct: ct);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // TRANSIENT failure: the key is known-good, so this is the lock *service* failing -
+                // a NATS outage, a missing KV bucket, a timeout. Unlike the deterministic case above
+                // this is a CORRELATED failure across the whole fleet: every pod fails at the same
+                // moment. Refreshing unlocked here would turn a NATS outage into a thundering herd -
+                // every pod hydrating from the source of truth on every cron tick, with matching L2
+                // write amplification, exactly when the system is least able to absorb it.
+                //
+                // So: skip this refresh without hydrating and let the next cron tick retry. Startup
+                // still proceeds (entries hydrate on demand through the single-key read-through
+                // path) rather than taking the host down over a cache refresh.
+                if (throwOnFail)
+                {
+                    throw;
+                }
+
+                logger.LogError(ex, "[{CacheName}]::Could not acquire the cache refresh lock '{CacheRefreshLockKey}'; skipping this refresh", CacheName, lockKey);
+                return;
+            }
 
             if (handle != null)
             {
-                await ReplaceAllAsync(ct);
+                await using (handle)
+                {
+                    await ReplaceAllAsync(ct);
+                }
+
                 return;
             }
 

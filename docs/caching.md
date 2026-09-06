@@ -296,7 +296,7 @@ sequenceDiagram
     participant Hybrid as HybridCache
 
     Startup->>Cache: RefreshAllAsync(retries: 0)
-    Cache->>Lock: Wait for NATS, then try-acquire cache-refresh:{CacheName}
+    Cache->>Lock: Wait for NATS, then try-acquire cache-refresh.{CacheName}
     alt Startup lock acquired
         Cache->>Store: HydrateAllAsync()
         Store-->>Cache: all values
@@ -306,7 +306,7 @@ sequenceDiagram
     end
 
     Timer->>Cache: RefreshAllAsync()
-    Cache->>Lock: Acquire cache-refresh:{CacheName}
+    Cache->>Lock: Acquire cache-refresh.{CacheName}
     alt Lock acquired
         Cache->>Store: HydrateAllAsync()
         Store-->>Cache: all values
@@ -318,6 +318,17 @@ sequenceDiagram
 ```
 
 Distributed locks use the existing NATS JetStream lock support. If NATS is not configured, the cache service logs a warning and performs refresh without a distributed lock.
+
+Two other lock failures are handled differently on purpose. Neither one fails host startup:
+
+| Failure | Behaviour | Why |
+| --- | --- | --- |
+| **Invalid lock key** — the cache name contains a character NATS KV rejects (e.g. a space) | Log an error, refresh **without** a lock | Deterministic: the key fails identically on every pod, forever, so blocking refresh permanently achieves nothing. Fix the cache name. |
+| **Lock service failure** — NATS outage, missing KV bucket, timeout | Log an error, **skip** this refresh until the next scheduled run | Correlated across the fleet: every pod fails at the same moment. Refreshing unlocked here would put every pod through a full `HydrateAllAsync` on every cron tick, with matching L2 write amplification, precisely during an outage. |
+
+Callers that pass `throwOnFail: true` still get the exception in both cases.
+
+> ⚠️ The refresh lock key is `cache-refresh.{CacheName}` — dot-separated, because it is a NATS KV key and **NATS KV keys may not contain `:`**. This is deliberately different from the Redis cache key below. See [Lock key rules](./distributed-locks.md#lock-key-rules).
 
 ## Key Structure
 
@@ -334,7 +345,9 @@ patient-cache:12345
 bills-cache:invoice-987
 ```
 
-Cache names and entry keys cannot contain `:`. Each entry also receives a `HybridCache` tag equal to `name`. The framework reserves the tag for future use; the bulk refresh path intentionally does _not_ call `RemoveByTagAsync` — see _Design Notes_ for why.
+These are **`HybridCache` / Redis keys**, where `:` is the correct separator. Do not confuse them with the NATS **distributed-lock** key (`cache-refresh.{CacheName}`), which is dot-separated because [NATS KV keys may not contain `:`](./distributed-locks.md#lock-key-rules).
+
+Cache names and entry keys cannot contain `:`. Because the cache name is also embedded in the refresh lock key, prefer names limited to letters, digits and `-`, `_`, `=`, `/`, `.`; other characters (spaces, `@`, …) are rejected by NATS when the refresh lock is acquired, and the SDK will then log an error and refresh without a lock. Each entry also receives a `HybridCache` tag equal to `name`. The framework reserves the tag for future use; the bulk refresh path intentionally does _not_ call `RemoveByTagAsync` — see _Design Notes_ for why.
 
 ## Design Notes
 

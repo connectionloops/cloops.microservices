@@ -11,6 +11,49 @@ The distributed locking system in `cloops.microservices` is built on top of NATS
 - **Retry mechanism**: Built-in retry logic with jittered backoff when acquiring locks
 - **Expired lock detection**: Automatically detects and steals expired locks from crashed instances
 
+## Lock key rules
+
+> ⚠️ **A lock key is a NATS KV key, and NATS KV keys may not contain `:`.**
+>
+> NATS accepts only these characters in a KV key: **letters, digits, and `-`, `_`, `=`, `/`, `.`**.
+> A key may not be empty and may not start or end with `.`.
+>
+> **`.` is the separator convention.** Use `service.resource`, never the Redis-style `service:resource`.
+
+```cs
+// ✅ valid
+"my-service.nightly-cleanup"
+"cache-refresh.patients"
+"db-migrations.my.assembly"
+
+// ❌ invalid - AcquireDistributedLockAsync throws NatsKVException
+"my-service:nightly-cleanup"
+"cache refresh patients"   // spaces are not allowed either
+```
+
+This is easy to get wrong because Redis cache keys in the same codebase **do** use `:` (see
+[Caching → Key Structure](./caching.md#key-structure)). Cache keys and lock keys are different
+namespaces with different rules.
+
+If you build a lock key from something dynamic — a tenant id, an assembly name, a config value —
+validate it so you get an actionable error instead of an opaque `NatsKVException`:
+
+```cs
+using CLOOPS.microservices;
+
+var lockKey = $"my-service.{tenantId}";
+NatsKvKey.Validate(lockKey, nameof(lockKey));
+// ArgumentException: NATS KV key 'my-service.acme:eu' is invalid: character ':' at position 18
+// is not allowed. NATS KV keys may only contain letters, digits and '-', '_', '=', '/', '.'.
+// ':' is a Redis-style separator and is never valid in a NATS KV key; use '.' instead ...
+```
+
+`NatsKvKey` also exposes `IsValid(key)` and `GetValidationError(key)` when you would rather branch
+than throw.
+
+> The **`ownerId`** argument is *not* a KV key — it is stored inside the lock document — so the
+> default `"{MachineName}:{ProcessId}"` and other `:`-bearing owner ids are fine.
+
 ## Basic Usage
 
 The simplest way to use distributed locks is to inject `ICloopsNatsClient` into your service and call `AcquireDistributedLockAsync`:
@@ -88,7 +131,7 @@ Task<DistributedLockHandle?> AcquireDistributedLockAsync(
 
 #### Parameters
 
-- **`key`** (required): A unique identifier for the lock. This should be descriptive and unique for the resource you're protecting (e.g., `"cljps.scheduling"`, `"database.migration"`).
+- **`key`** (required): A unique identifier for the lock. This should be descriptive and unique for the resource you're protecting (e.g., `"cljps.scheduling"`, `"database.migration"`). It is used verbatim as a NATS KV key, so it must follow the [lock key rules](#lock-key-rules) — letters, digits and `-`, `_`, `=`, `/`, `.` only, **no `:`**.
 
 - **`timeout`** (optional): Maximum time to spend trying to acquire the lock. Defaults to `1.5 * AcquireRetryMaxDelay` (approximately 750ms). If the lock cannot be acquired within this time, the method returns `null`.
 
@@ -322,7 +365,7 @@ These defaults are suitable for most use cases. The automatic renewal ensures th
    }
    ```
 
-3. **Use descriptive lock keys**: Use clear, hierarchical names for lock keys:
+3. **Use descriptive, dot-separated lock keys**: Use clear, hierarchical names joined with `.` (see [lock key rules](#lock-key-rules)):
 
    ```cs
    // Good
@@ -330,10 +373,13 @@ These defaults are suitable for most use cases. The automatic renewal ensures th
    "database.migration.v1"
    "cache.warmup.users"
 
-   // Bad
+   // Bad - not descriptive
    "lock1"
    "temp"
    "x"
+
+   // Broken - ':' is not a legal NATS KV key character; this throws NatsKVException
+   "cljps:scheduling"
    ```
 
 4. **Set appropriate timeouts**: Use longer timeouts for operations that may take time to acquire the lock:

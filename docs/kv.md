@@ -105,6 +105,30 @@ while (true)
 
 This gives a simple distributed sequence without an external coordinator. For globally unique, sortable IDs that do not need a central counter, prefer [Snowflake ID generation](./snowflake-id.md).
 
+## Key rules
+
+> ⚠️ **A NATS KV key may contain only letters, digits and `-`, `_`, `=`, `/`, `.`** — it may not be
+> empty and may not start or end with `.`.
+>
+> **`:` is not allowed.** The Redis-style `service:resource` convention does not work here;
+> **`.` is the separator convention**: `tenant.123.profile`, `seq.invoices`.
+>
+> **Bucket names are restricted more tightly still:** letters, digits, `_` and `-` only — **no dots**.
+
+An invalid key surfaces as an opaque `NatsKVException` that does not name the key. When you compose
+a key from dynamic values, validate it first:
+
+```csharp
+using CLOOPS.microservices;
+
+var key = $"tenant.{tenantId}.profile";
+NatsKvKey.Validate(key, nameof(key)); // ArgumentException names the key and the bad character
+await bucket.PutAsync(key, profile);
+```
+
+The same rules apply to [distributed lock](./distributed-locks.md#lock-key-rules) keys, because a
+lock is just a KV entry.
+
 ## Operational notes
 
 - **Buckets must exist** before `GetStoreAsync`. Create them with `CreateStoreAsync` / `CreateOrUpdateStoreAsync` on `KvContext` (or via your ops bootstrap).
