@@ -15,9 +15,13 @@ Tracking what has changed since v1.1.15
 | July 19, 2026 | [NATS Consumer Exception Handler](/docs/consumer.md#consumer-exception-handlers) | 1.1.21 (requires `cloops.nats` with exception-handler support) |
 | July 26, 2026 | [`RunInTransaction<T>` automatic SQL transaction management](/docs/db.md#automatic-transaction-management) | 1.1.22 |
 | July 27, 2026 | Fix: migration distributed-lock key uses a valid NATS KV separator; migrations skip gracefully when the lock cannot be acquired | 1.1.25 |
-| September 6, 2026 | Fix: cache refresh distributed-lock key uses a valid NATS KV separator (`cache-refresh.{CacheName}`), an invalid lock key or a failing lock service no longer crashes host startup, and new [`NatsKvKey`](/docs/distributed-locks.md#lock-key-rules) validator rejects invalid KV / lock keys with an actionable message | unreleased |
+| September 6, 2026 | Fix: cache refresh distributed-lock key uses a valid NATS KV separator (`cache-refresh.{CacheName}`), an invalid lock key or a failing lock service no longer crashes host startup, and new [`NatsKvKey`](/docs/distributed-locks.md#lock-key-rules) validator rejects invalid KV / lock keys with an actionable message | 1.1.28 |
+| September 6, 2026 | Fix: [`DB.pars`](/docs/db.md#datetime-parameters-are-bound-as-datetime2) binds a `DateTime` as `SqlDbType.DateTime2` instead of the `SqlDbType.DateTime` SqlClient infers, which was silently re-rounding roughly two of every three millisecond values into `datetime2` columns and moving `WHERE` boundaries by a row. **Behaviour change on legacy `datetime` columns only** — see the doc note before upgrading if you compare one against a `DateTime` parameter | 1.1.29 |
 
-> **Note on 1.1.26:** the CI run for the cache-refresh fix built `cloops.microservices` 1.1.26 but failed to
-> publish it (the NuGet API key it used had been revoked), so **1.1.26 was never released and that version
-> number is now skipped permanently** — run numbers drive the version and they do not rewind. The latest
-> version on nuget.org is 1.1.25. The fix above ships in the next successfully published version.
+> **Note on the skipped 1.1.26 and 1.1.27:** CI derives the version from `github.run_number`, and run
+> numbers never rewind, so a run that builds but fails to publish burns its version permanently. Run 26
+> (cache-refresh fix) failed to push — the NuGet API key it used had been revoked — and run 27 (the switch
+> to Trusted Publishing) failed at the OIDC token exchange because the nuget.org trust policy was not yet
+> enabled. **Neither 1.1.26 nor 1.1.27 was ever released and both version numbers are skipped.** Run 28
+> published successfully under Trusted Publishing, so the cache-refresh fix shipped in **1.1.28** — not
+> 1.1.26 as earlier notes claimed.
