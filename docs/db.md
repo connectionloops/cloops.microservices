@@ -724,6 +724,43 @@ var parameters = DB.pars(
 
 **Note**: `null` values are automatically converted to `DBNull.Value`.
 
+#### `DateTime` parameters are bound as `datetime2`
+
+`SqlParameter` infers `SqlDbType.DateTime` for a CLR `DateTime`. Legacy `datetime` only stores
+1/300 of a second, so roughly two of every three millisecond values are silently re-rounded on the
+way to the server — `.001` becomes `.000`, `.002` becomes `.0033333`, `.999` rolls into the next
+second. Against a `datetime2` column that corrupts inserts, and shifts `WHERE` boundaries by a row:
+a keyset cursor whose value rounds up repeats rows, one that rounds down skips them.
+
+`DB.pars()` therefore binds every `DateTime` as `SqlDbType.DateTime2`. No scale is set, so the value
+travels as `datetime2(7)` and SQL Server rounds it to whatever the target column declares — a
+`datetime2(3)` column still stores milliseconds.
+
+`DateTimeOffset` was never affected: SqlClient already infers the full-precision type for it.
+
+**If your column is a legacy `datetime`**, this changes comparisons whose bound is a value that
+column cannot hold — only whole multiples of 10 ms are, plus anything read back out of the column.
+The client used to snap the bound to the column's grid; now the column is widened for the comparison
+instead. `WHERE created = @t` with `@t` of `.789` used to match a row stored as `.790`, and no
+longer does. Compare a range, or round the value yourself:
+
+```csharp
+// On a legacy datetime column, prefer a range over exact equality
+const string query = "SELECT * FROM settlements WHERE credit_dt >= @from AND credit_dt < @to";
+var parameters = DB.pars(("@from", at), ("@to", at.AddMilliseconds(4)));
+```
+
+Writes are unaffected either way — SQL Server rounds on assignment exactly as the client used to, so
+the same value lands in a legacy `datetime` column. Index seeks are unaffected too: SQL Server plans
+a dynamic seek over the converted range rather than scanning.
+
+A caller that genuinely needs the old type can still overwrite it on the returned array:
+
+```csharp
+var parameters = DB.pars(("@t", value));
+parameters[0].SqlDbType = SqlDbType.DateTime; // opt back out
+```
+
 ## Best Practices
 
 1. **Always use parameterized queries**: Never concatenate user input directly into SQL strings

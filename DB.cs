@@ -1,3 +1,4 @@
+using System.Data;
 using System.Data.Common;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -469,6 +470,16 @@ public class DB : IDB
     /// <summary>
     /// Creates an array of <see cref="SqlParameter"/> instances from name-value tuples.
     /// </summary>
+    /// <remarks>
+    /// A CLR <see cref="DateTime"/> is bound as <see cref="SqlDbType.DateTime2"/> rather than the
+    /// <see cref="SqlDbType.DateTime"/> SqlClient would otherwise infer. Legacy <c>datetime</c> only
+    /// has 3.33 ms resolution, so an inferred parameter silently re-rounds roughly two of every three
+    /// millisecond values on the way to a <c>datetime2</c> column - corrupting inserts and, worse,
+    /// shifting <c>WHERE</c> boundaries by a row. No scale is set, so the value goes to the server as
+    /// <c>datetime2(7)</c> and SQL Server rounds it to whatever the target column declares. A caller
+    /// that genuinely needs another type can still overwrite <see cref="SqlParameter.SqlDbType"/> on
+    /// the returned array.
+    /// </remarks>
     /// <param name="sqlParams">Comma separated tuples. First item is the parameter name, second item is the parameter value.</param>
     /// <returns>An array of <see cref="SqlParameter"/> instances created from the provided tuples.</returns>
     public static SqlParameter[] pars(params (string, object?)[] sqlParams)
@@ -476,7 +487,12 @@ public class DB : IDB
         SqlParameter[] retval = new SqlParameter[sqlParams.Length];
         for (int i = 0; i < sqlParams.Length; i++)
         {
-            retval[i] = new SqlParameter(sqlParams[i].Item1, sqlParams[i].Item2 ?? DBNull.Value);
+            var parameter = new SqlParameter(sqlParams[i].Item1, sqlParams[i].Item2 ?? DBNull.Value);
+            if (sqlParams[i].Item2 is DateTime)
+            {
+                parameter.SqlDbType = SqlDbType.DateTime2;
+            }
+            retval[i] = parameter;
         }
         return retval;
     }

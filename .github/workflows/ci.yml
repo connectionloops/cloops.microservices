@@ -15,6 +15,19 @@ jobs:
   build:
     name: Build and Test
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # The DB.pars date/time tests assert SQL Server's own conversion and comparison behaviour, so
+    # they need a real server; without one they skip and prove nothing.
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: "Str0ng!Passw0rd"
+          MSSQL_PID: Developer
+        ports:
+          - 14333:1433
 
     steps:
       - name: Checkout code
@@ -38,9 +51,24 @@ jobs:
       - name: Build project
         run: dotnet build ${{ env.PROJECT }} --configuration ${{ env.BUILD_CONFIGURATION }} --no-restore -p:Version=${{ steps.version.outputs.PACKAGE_VERSION }}
 
+      - name: Wait for SQL Server
+        # The mssql image ships no healthcheck, so poll the port rather than let the integration
+        # tests skip themselves on a server that was simply still starting.
+        run: |
+          for i in $(seq 1 60); do
+            if (echo > /dev/tcp/127.0.0.1/14333) >/dev/null 2>&1; then
+              echo "SQL Server accepting connections after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "SQL Server did not come up; date/time integration tests will skip." >&2
+
       - name: Run tests
         # No --no-build here: the build step above builds only $PROJECT, so the test project
         # still needs to be built.
+        env:
+          CLOOPS_TEST_SQL_CONNECTION_STRING: "Server=127.0.0.1,14333;User Id=sa;Password=Str0ng!Passw0rd;TrustServerCertificate=True;Encrypt=False;Database=master"
         run: dotnet test tests/cloops.microservices.sdk.Tests/cloops.microservices.sdk.Tests.csproj --configuration ${{ env.BUILD_CONFIGURATION }} --verbosity normal
         continue-on-error: true
 
@@ -55,6 +83,7 @@ jobs:
   publish:
     name: Publish to NuGet
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: build
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     permissions:
