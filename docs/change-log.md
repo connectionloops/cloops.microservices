@@ -15,4 +15,9 @@ Tracking what has changed since v1.1.15
 | July 19, 2026 | [NATS Consumer Exception Handler](/docs/consumer.md#consumer-exception-handlers) | 1.1.21 (requires `cloops.nats` with exception-handler support) |
 | July 26, 2026 | [`RunInTransaction<T>` automatic SQL transaction management](/docs/db.md#automatic-transaction-management) | 1.1.22 |
 | July 27, 2026 | Fix: migration distributed-lock key uses a valid NATS KV separator; migrations skip gracefully when the lock cannot be acquired | 1.1.25 |
-| September 6, 2026 | Fix: cache refresh distributed-lock key uses a valid NATS KV separator (`cache-refresh.{CacheName}`), an invalid lock key or a failing lock service no longer crashes host startup, and new [`NatsKvKey`](/docs/distributed-locks.md#lock-key-rules) validator rejects invalid KV / lock keys with an actionable message | 1.1.26 |
+| September 6, 2026 | Fix: cache refresh distributed-lock key uses a valid NATS KV separator (`cache-refresh.{CacheName}`), an invalid lock key or a failing lock service no longer crashes host startup, and new [`NatsKvKey`](/docs/distributed-locks.md#lock-key-rules) validator rejects invalid KV / lock keys with an actionable message | unreleased |
+
+> **Note on 1.1.26:** the CI run for the cache-refresh fix built `cloops.microservices` 1.1.26 but failed to
+> publish it (the NuGet API key it used had been revoked), so **1.1.26 was never released and that version
+> number is now skipped permanently** — run numbers drive the version and they do not rewind. The latest
+> version on nuget.org is 1.1.25. The fix above ships in the next successfully published version.

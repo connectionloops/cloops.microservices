@@ -18,10 +18,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup .NET 10.0 SDK
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "10.0.x"
 
@@ -46,7 +46,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: test-results
           path: "**/TestResults/**/*"
@@ -57,16 +57,20 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    # Must match the Trusted Publishing policy on nuget.org (repo, workflow file, environment).
+    environment: production
     permissions:
       contents: write
       packages: write
+      # Required to mint the OIDC token that NuGet/login exchanges for a short-lived API key.
+      id-token: write
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup .NET 10.0 SDK
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "10.0.x"
 
@@ -87,16 +91,24 @@ jobs:
         run: dotnet pack ${{ env.PROJECT }} --configuration ${{ env.BUILD_CONFIGURATION }} --no-build --output ./artifacts -p:Version=${{ steps.version.outputs.PACKAGE_VERSION }}
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: nuget-packages
           path: ./artifacts/**/*.nupkg
 
+      # Trusted Publishing: exchange this run's OIDC token for a short-lived NuGet API key.
+      # No stored NUGET_API_KEY secret, nothing to expire or rotate.
+      - name: NuGet login (Trusted Publishing)
+        id: nuget_login
+        uses: NuGet/login@v1
+        with:
+          user: gskalele
+
       - name: Push to NuGet
-        run: dotnet nuget push ./artifacts/**/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+        run: dotnet nuget push ./artifacts/**/*.nupkg --api-key ${{ steps.nuget_login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
 
       - name: Create GitHub Tag
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const version = '${{ steps.version.outputs.PACKAGE_VERSION }}';
@@ -127,7 +139,7 @@ jobs:
             }
 
       - name: Create GitHub Release
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const version = '${{ steps.version.outputs.PACKAGE_VERSION }}';
