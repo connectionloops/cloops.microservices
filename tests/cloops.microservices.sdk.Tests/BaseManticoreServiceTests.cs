@@ -98,6 +98,39 @@ public class BaseManticoreServiceTests
         Assert.Equal(7, result.GetProperty("data")[0].GetProperty("id").GetInt64());
     }
 
+    /// <summary>
+    /// Some statements answer with an empty (or whitespace) body. That is an empty result, not a
+    /// failure — <c>ParseResult</c> substitutes <c>{}</c> rather than choking on it.
+    /// </summary>
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task AnEmptyBody_IsAnEmptyResult_NotAFailure(string body)
+    {
+        var service = Service(new StubHandler(body), "http://manticore:9308");
+
+        var result = await service.Run("DELETE FROM idx WHERE id = 1", default);
+
+        Assert.Equal(JsonValueKind.Object, result.ValueKind);
+    }
+
+    /// <summary>
+    /// The <c>error</c> member is routinely <i>present and empty</i> on success (<c>"error":""</c>),
+    /// and absent entirely in some result shapes. Only a non-empty value is a failure — treating
+    /// mere presence as one would fail every statement.
+    /// </summary>
+    [Theory]
+    [InlineData("""[{"total":0,"error":"","warning":"","data":[]}]""")]
+    [InlineData("""{"total":0,"data":[]}""")]
+    public async Task AnEmptyOrAbsentErrorMember_IsSuccess(string body)
+    {
+        var service = Service(new StubHandler(body), "http://manticore:9308");
+
+        var result = await service.Run("SELECT 1", default);
+
+        Assert.Equal(JsonValueKind.Object, result.ValueKind);
+    }
+
     // ── failure classification ────────────────────────────────────────────────────────────────
 
     /// <summary>

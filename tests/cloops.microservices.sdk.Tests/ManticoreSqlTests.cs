@@ -182,6 +182,24 @@ public class ManticoreSqlTests
         Assert.Equal(@"alpha\\\\beta", ManticoreSql.EscapeLiteral(ManticoreSql.EscapeMatch(@"alpha\beta")));
     }
 
+    /// <summary>
+    /// The same, pinned per operator: through both layers each operator travels with its
+    /// <c>EscapeMatch</c> backslash doubled by <c>EscapeLiteral</c> — <c>a\\(b</c>, <c>a\\|b</c>, …
+    /// The backslash operator is its own special case: it is escaped by <c>EscapeMatch</c>
+    /// (<c>\\</c>) and then both characters are doubled by <c>EscapeLiteral</c> (<c>\\\\</c>).
+    /// </summary>
+    [Fact]
+    public void EscapeMatch_ThenEscapeLiteral_DoublesTheBackslashForEveryOperator()
+    {
+        foreach (var op in ManticoreSql.MatchOperators)
+        {
+            var wire = ManticoreSql.EscapeLiteral(ManticoreSql.EscapeMatch($"a{op}b"));
+            var expected = op == '\\' ? @"a\\\\b" : $@"a\\{op}b";
+
+            Assert.Equal(expected, wire);
+        }
+    }
+
     // ── SafeIndexName: the config-side injection guard ────────────────────────────────────────
 
     [Theory]
