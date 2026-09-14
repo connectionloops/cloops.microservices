@@ -39,7 +39,7 @@ Before working on an area powered by cloops.microservices SDK, use below documen
   - **9.1. Microsoft SQL Server (relational)** — https://github.com/connectionloops/cloops.microservices/blob/main/docs/mssql.md
     - **9.1.1. Making SQL Database Calls** — https://github.com/connectionloops/cloops.microservices/blob/main/docs/db.md
     - **9.1.2. Database Migrations** — https://github.com/connectionloops/cloops.microservices/blob/main/docs/migrations.md
-  - **9.2. Manticore (searchable documents) (WIP)** — https://github.com/connectionloops/cloops.microservices/blob/main/docs/manticore.md
+  - **9.2. Manticore (searchable documents)** — https://github.com/connectionloops/cloops.microservices/blob/main/docs/manticore.md
   - **9.3. NimbusDb (object store backed) (WIP)** — https://github.com/connectionloops/cloops.microservices/blob/main/docs/nimbusdb.md
   - **9.4. TigerBeetle (transactional workloads)** — https://github.com/connectionloops/cloops.microservices/blob/main/docs/tigerbeetle.md
   - **9.5. NATS KV** — https://github.com/connectionloops/cloops.microservices/blob/main/docs/kv.md
@@ -69,7 +69,7 @@ Before working on an area powered by cloops.microservices SDK, use below documen
 | Business data with relations; multiple tables modified together  | Microsoft SQL Server |
 | Money, ledger, accounting — balances, transfers, double-entry    | TigerBeetle          |
 | Fast get-by-key; value < 4KB; lowest latency; OCC / sequences    | NATS KV              |
-| Entity masters searchable by many properties (< 50ms)            | Manticore (WIP)      |
+| Entity masters searchable by many properties (< 50ms)            | Manticore            |
 | Massive objects retrieved by ID (~100ms)                         | NimbusDb (WIP)       |
 | Blob storage                                                     | MinIO (WIP)          |
 

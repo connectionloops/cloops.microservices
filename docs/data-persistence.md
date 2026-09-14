@@ -9,7 +9,7 @@
 | Money, ledger, and accounting — balances, transfers, double-entry                                  | [TigerBeetle](./tigerbeetle.md)     |
 | **Documents**                                                                                      | \*\*\*                              |
 | Fast document retrieval by exact key; value < 4KB (lowest latency < 20ms); OCC / sequences         | [NATS KV](./kv.md)                  |
-| Resource or entity masters searchable by many properties (low latency. < 50ms)                     | [Manticore](./manticore.md) _(WIP)_ |
+| Resource or entity masters searchable by many properties (low latency. < 50ms)                     | [Manticore](./manticore.md) |
 | Massive-sized objects retrieved by ID (decent latency may be around 100ms)                         | [NimbusDb](./nimbusdb.md) _(WIP)_   |
 | **Blob**                                                                                           | \*\*\*                              |
 | MinIO                                                                                              | [MinIO](./min-io.md) _(WIP)_        |
